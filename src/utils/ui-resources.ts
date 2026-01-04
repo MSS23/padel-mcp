@@ -9,6 +9,8 @@ import type { EnhancedTimeSlot, EnhancedDayAvailability } from '../types/index.j
 import { generateSlotCardHTML, generateSlotCardsHTML } from '../ui/components/slot-card.js';
 import { generateSearchFormHTML, generateQuickSearchHTML, generateVenueSearchFormHTML, type SearchFormDefaults } from '../ui/components/search-form.js';
 import { generateWeeklyCalendarHTML, generateWeeklyListHTML } from '../ui/components/calendar-view.js';
+import { generateEmptyStateHTML, type EmptyStateParams } from '../ui/components/empty-state.js';
+import { generatePriceComparisonHTML, type PriceSlot, type VenuePrice } from '../ui/components/price-card.js';
 
 /**
  * MCP Embedded Resource type for UI content
@@ -155,6 +157,44 @@ export function createWeeklyListResource(params: {
     type: 'resource' as const,
     resource: {
       uri: `ui://padel-finder/weekly-list/${params.venueId}`,
+      mimeType: 'text/html' as const,
+      text: htmlContent,
+    },
+  };
+}
+
+/**
+ * Create an embedded resource for empty state / no results view
+ */
+export function createEmptyStateResource(params: EmptyStateParams): MCPEmbeddedResource {
+  const htmlContent = generateEmptyStateHTML(params);
+
+  return {
+    type: 'resource' as const,
+    resource: {
+      uri: `ui://padel-finder/empty-state/${Date.now()}`,
+      mimeType: 'text/html' as const,
+      text: htmlContent,
+    },
+  };
+}
+
+/**
+ * Create an embedded resource for price comparison view
+ */
+export function createPriceComparisonResource(params: {
+  venuesByPrice: VenuePrice[];
+  cheapestSlots: PriceSlot[];
+  location: string;
+  date: string;
+  totalCompared: number;
+}): MCPEmbeddedResource {
+  const htmlContent = generatePriceComparisonHTML(params);
+
+  return {
+    type: 'resource' as const,
+    resource: {
+      uri: `ui://padel-finder/price-comparison/${Date.now()}`,
       mimeType: 'text/html' as const,
       text: htmlContent,
     },

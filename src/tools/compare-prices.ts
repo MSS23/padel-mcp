@@ -8,6 +8,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { parseLocation } from '../services/geocoding.js';
 import { findAvailableGames } from '../services/playtomic.js';
+import { createPriceComparisonResource, createEmptyStateResource, createUIToolResponse } from '../utils/ui-resources.js';
 
 export const comparePricesSchema = {
   location: z
@@ -68,14 +69,24 @@ export function registerComparePrices(server: McpServer): void {
       );
 
       if (slots.length === 0) {
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: `No available courts found near "${location}" on ${date}.`,
-            },
+        const message = `No available courts found near "${location}" on ${date}.`;
+        const emptyResource = createEmptyStateResource({
+          title: 'No Courts Found',
+          message,
+          suggestions: [
+            'Try a different date',
+            'Expand the search radius',
+            'Try a different location',
           ],
-        };
+          searchLocation: location,
+          searchDate: date,
+        });
+
+        return createUIToolResponse({
+          textContent: message,
+          uiResource: emptyResource,
+          uiName: 'No Results',
+        });
       }
 
       // Calculate price per hour for comparison
@@ -121,37 +132,48 @@ export function registerComparePrices(server: McpServer): void {
         summary += `- ${slot.time} @ ${slot.venue} (${slot.court}): ${slot.currency} ${slot.price.toFixed(2)} (${slot.duration_minutes}min)\n`;
       }
 
+      const venuesByPrice = sortedVenues.map(([venue, pricePerHour]) => ({
+        venue,
+        min_price_per_hour: Math.round(pricePerHour * 100) / 100,
+        currency: priceData.find((p) => p.venue === venue)?.currency ?? 'EUR',
+      }));
+
+      const cheapestSlots = priceData.slice(0, 20).map((p) => ({
+        venue: p.venue,
+        venue_id: p.venue_id,
+        court: p.court,
+        time: p.time,
+        duration_minutes: p.duration_minutes,
+        price: p.price,
+        price_per_hour: Math.round(p.price_per_hour * 100) / 100,
+        currency: p.currency,
+      }));
+
       const response = {
         search: {
           location,
           date,
           time_range: { start: time_start ?? null, end: time_end ?? null },
         },
-        venues_by_price: sortedVenues.map(([venue, pricePerHour]) => ({
-          venue,
-          min_price_per_hour: Math.round(pricePerHour * 100) / 100,
-          currency: priceData.find((p) => p.venue === venue)?.currency ?? 'EUR',
-        })),
-        cheapest_slots: priceData.slice(0, 20).map((p) => ({
-          venue: p.venue,
-          court: p.court,
-          time: p.time,
-          duration_minutes: p.duration_minutes,
-          price: p.price,
-          price_per_hour: Math.round(p.price_per_hour * 100) / 100,
-          currency: p.currency,
-        })),
+        venues_by_price: venuesByPrice,
+        cheapest_slots: cheapestSlots,
         total_slots_compared: priceData.length,
       };
 
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: summary + '\n```json\n' + JSON.stringify(response, null, 2) + '\n```',
-          },
-        ],
-      };
+      // Create price comparison UI
+      const uiResource = createPriceComparisonResource({
+        venuesByPrice,
+        cheapestSlots,
+        location,
+        date,
+        totalCompared: priceData.length,
+      });
+
+      return createUIToolResponse({
+        textContent: summary + '\n```json\n' + JSON.stringify(response, null, 2) + '\n```',
+        uiResource,
+        uiName: 'Price Comparison',
+      });
     }
   );
 }

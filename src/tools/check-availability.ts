@@ -11,7 +11,7 @@ import { checkVenueAvailability, getVenueDetails } from '../services/playtomic.j
 import { getWeatherForSlot, formatWeatherLine, formatPlayabilityStatus } from '../services/weather.js';
 import { generateSlotCalendarLink, formatCalendarLinkMarkdown } from '../utils/calendar.js';
 import { generateSlotBookingUrl, formatBookingLinkMarkdown } from '../utils/booking.js';
-import { createSlotCardsResource, createUIToolResponse } from '../utils/ui-resources.js';
+import { createSlotCardsResource, createEmptyStateResource, createUIToolResponse } from '../utils/ui-resources.js';
 import type { EnhancedTimeSlot, Coordinates } from '../types/index.js';
 
 export const checkAvailabilitySchema = {
@@ -93,14 +93,24 @@ export function registerCheckAvailability(server: McpServer): void {
           start_time || end_time
             ? ` between ${start_time ?? '00:00'} and ${end_time ?? '23:59'}`
             : '';
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: `No available slots at ${venue_name ?? venue_id} on ${date}${timeFilter}.`,
-            },
+
+        const message = `No available slots at ${venue_name ?? venue_id} on ${date}${timeFilter}.`;
+        const emptyResource = createEmptyStateResource({
+          title: 'No Slots Available',
+          message,
+          suggestions: [
+            'Try a different date',
+            'Expand the time range',
+            'Check another venue nearby',
           ],
-        };
+          searchDate: date,
+        });
+
+        return createUIToolResponse({
+          textContent: message,
+          uiResource: emptyResource,
+          uiName: 'No Slots',
+        });
       }
 
       // Enhance slots with weather and links

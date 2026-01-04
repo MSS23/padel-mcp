@@ -11,7 +11,7 @@ import { findAvailableGamesWithFilters, getVenueDetails } from '../services/play
 import { getWeatherForSlot, formatWeatherLine, formatPlayabilityStatus } from '../services/weather.js';
 import { generateSlotCalendarLink, formatCalendarLinkMarkdown } from '../utils/calendar.js';
 import { generateSlotBookingUrl, formatBookingLinkMarkdown } from '../utils/booking.js';
-import { createSlotCardsResource, createUIToolResponse } from '../utils/ui-resources.js';
+import { createSlotCardsResource, createEmptyStateResource, createUIToolResponse } from '../utils/ui-resources.js';
 import { getPreferences } from '../services/preferences.js';
 import type { EnhancedTimeSlot, Coordinates, QuickSearchPreset } from '../types/index.js';
 
@@ -282,14 +282,23 @@ export function registerQuickSearch(server: McpServer): void {
       }
 
       if (allSlots.length === 0) {
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: `No available courts found for ${config.description} near "${searchLocation}".\n\nTry:\n- A different preset\n- Expanding the search radius\n- A different location`,
-            },
+        const message = `No available courts found for ${config.description} near "${searchLocation}".`;
+        const emptyResource = createEmptyStateResource({
+          title: 'No Courts Available',
+          message,
+          suggestions: [
+            'Try a different preset',
+            'Expand the search radius',
+            'Try a different location',
           ],
-        };
+          searchLocation,
+        });
+
+        return createUIToolResponse({
+          textContent: message + '\n\nTry:\n- A different preset\n- Expanding the search radius\n- A different location',
+          uiResource: emptyResource,
+          uiName: 'No Results',
+        });
       }
 
       // Sort final results

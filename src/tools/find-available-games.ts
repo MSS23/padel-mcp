@@ -12,7 +12,7 @@ import { findAvailableGames, findNearbyVenues, getVenueDetails } from '../servic
 import { getWeatherForSlot, formatWeatherLine, formatPlayabilityStatus } from '../services/weather.js';
 import { generateSlotCalendarLink, formatCalendarLinkMarkdown } from '../utils/calendar.js';
 import { generateSlotBookingUrl, formatBookingLinkMarkdown } from '../utils/booking.js';
-import { createSlotCardsResource, createUIToolResponse } from '../utils/ui-resources.js';
+import { createSlotCardsResource, createEmptyStateResource, createUIToolResponse } from '../utils/ui-resources.js';
 import type { EnhancedTimeSlot, Coordinates } from '../types/index.js';
 
 export const findAvailableGamesSchema = {
@@ -103,14 +103,25 @@ export function registerFindAvailableGames(server: McpServer): void {
           preferred_time_start || preferred_time_end
             ? ` between ${preferred_time_start ?? '00:00'} and ${preferred_time_end ?? '23:59'}`
             : '';
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: `No available padel courts found near "${location}" on ${date}${timeFilter}.\n\nTry:\n- Expanding the search radius\n- Looking at a different date\n- Adjusting the time range`,
-            },
+
+        const message = `No available padel courts found near "${location}" on ${date}${timeFilter}.`;
+        const emptyResource = createEmptyStateResource({
+          title: 'No Courts Available',
+          message,
+          suggestions: [
+            'Expand the search radius',
+            'Try a different date',
+            'Adjust the time range',
           ],
-        };
+          searchLocation: location,
+          searchDate: date,
+        });
+
+        return createUIToolResponse({
+          textContent: message + '\n\nTry:\n- Expanding the search radius\n- Looking at a different date\n- Adjusting the time range',
+          uiResource: emptyResource,
+          uiName: 'No Results',
+        });
       }
 
       // Get venue details for phone/website and coordinates for weather

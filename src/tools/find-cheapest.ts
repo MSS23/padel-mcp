@@ -8,6 +8,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { parseLocation } from '../services/geocoding.js';
 import { findAvailableGamesFiltered } from '../services/playtomic.js';
+import { createPriceComparisonResource, createEmptyStateResource, createUIToolResponse } from '../utils/ui-resources.js';
 
 export const findCheapestSchema = {
   location: z
@@ -84,14 +85,24 @@ export function registerFindCheapest(server: McpServer): void {
       const topSlots = slots.slice(0, max_results ?? 10);
 
       if (topSlots.length === 0) {
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: `No available courts found near "${location}" on ${date}.\n\nTry:\n- A different date\n- Expanding the search radius\n- Removing the duration filter`,
-            },
+        const message = `No available courts found near "${location}" on ${date}.`;
+        const emptyResource = createEmptyStateResource({
+          title: 'No Courts Found',
+          message,
+          suggestions: [
+            'Try a different date',
+            'Expand the search radius',
+            'Remove the duration filter',
           ],
-        };
+          searchLocation: location,
+          searchDate: date,
+        });
+
+        return createUIToolResponse({
+          textContent: message + '\n\nTry:\n- A different date\n- Expanding the search radius\n- Removing the duration filter',
+          uiResource: emptyResource,
+          uiName: 'No Results',
+        });
       }
 
       // Calculate price stats
@@ -125,6 +136,33 @@ export function registerFindCheapest(server: McpServer): void {
         summary += `\n   (${slot.currency} ${pricePerHour.toFixed(2)}/hour)\n\n`;
       }
 
+      const cheapestSlots = topSlots.map((s) => ({
+        venue: s.venue_name,
+        venue_id: s.venue_id,
+        court: s.court_name,
+        time: s.start_time.split('T')[1]?.substring(0, 5) ?? '',
+        duration_minutes: s.duration_minutes,
+        price: s.price,
+        price_per_hour: Math.round(((s.price / s.duration_minutes) * 60) * 100) / 100,
+        currency: s.currency,
+      }));
+
+      // Group by venue for venue rankings
+      const venueMinPrices = new Map<string, number>();
+      for (const slot of topSlots) {
+        const pricePerHour = (slot.price / slot.duration_minutes) * 60;
+        if (!venueMinPrices.has(slot.venue_name) || venueMinPrices.get(slot.venue_name)! > pricePerHour) {
+          venueMinPrices.set(slot.venue_name, pricePerHour);
+        }
+      }
+      const venuesByPrice = [...venueMinPrices.entries()]
+        .sort((a, b) => a[1] - b[1])
+        .map(([venue, pricePerHour]) => ({
+          venue,
+          min_price_per_hour: Math.round(pricePerHour * 100) / 100,
+          currency: cheapest.currency,
+        }));
+
       const response = {
         search: {
           location,
@@ -139,27 +177,23 @@ export function registerFindCheapest(server: McpServer): void {
           cheapest_price: cheapest.price,
           currency: cheapest.currency,
         },
-        cheapest_slots: topSlots.map((s) => ({
-          venue: s.venue_name,
-          venue_id: s.venue_id,
-          court: s.court_name,
-          start: s.start_time,
-          duration_minutes: s.duration_minutes,
-          price: s.price,
-          price_per_hour: Math.round(((s.price / s.duration_minutes) * 60) * 100) / 100,
-          currency: s.currency,
-          distance_km: s.distance_km,
-        })),
+        cheapest_slots: cheapestSlots,
       };
 
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: summary + '```json\n' + JSON.stringify(response, null, 2) + '\n```',
-          },
-        ],
-      };
+      // Create price comparison UI
+      const uiResource = createPriceComparisonResource({
+        venuesByPrice,
+        cheapestSlots,
+        location,
+        date,
+        totalCompared: slots.length,
+      });
+
+      return createUIToolResponse({
+        textContent: summary + '```json\n' + JSON.stringify(response, null, 2) + '\n```',
+        uiResource,
+        uiName: 'Cheapest Courts',
+      });
     }
   );
 }
