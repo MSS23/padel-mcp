@@ -11,7 +11,7 @@ import { checkVenueAvailability, getVenueDetails } from '../services/playtomic.j
 import { getWeatherForSlot, formatWeatherLine, formatPlayabilityStatus } from '../services/weather.js';
 import { generateSlotCalendarLink, formatCalendarLinkMarkdown } from '../utils/calendar.js';
 import { generateSlotBookingUrl, formatBookingLinkMarkdown } from '../utils/booking.js';
-import { createSlotCardsResource } from '../utils/ui-resources.js';
+import { createSlotCardsResource, createUIToolResponse } from '../utils/ui-resources.js';
 import type { EnhancedTimeSlot, Coordinates } from '../types/index.js';
 
 export const checkAvailabilitySchema = {
@@ -238,15 +238,12 @@ export function registerCheckAvailability(server: McpServer): void {
         title: `🎾 ${venue_name ?? venue_id} - ${date}`,
       });
 
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: summary + '\n```json\n' + JSON.stringify(response, null, 2) + '\n```',
-          },
-          uiResource,
-        ],
-      };
+      // Return with Goose MCP-UI metadata for proper rendering
+      return createUIToolResponse({
+        textContent: summary + '\n```json\n' + JSON.stringify(response, null, 2) + '\n```',
+        uiResource,
+        uiName: `${venue_name ?? 'Venue'} Availability`,
+      });
     }
   );
 }

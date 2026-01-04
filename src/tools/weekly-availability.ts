@@ -10,7 +10,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { checkVenueAvailability, findNearbyVenues, getVenueDetails } from '../services/playtomic.js';
 import { parseLocation } from '../services/geocoding.js';
 import { getDailyWeatherSummary } from '../services/weather.js';
-import { createWeeklyCalendarResource } from '../utils/ui-resources.js';
+import { createWeeklyCalendarResource, createUIToolResponse } from '../utils/ui-resources.js';
 import type { DayAvailability, EnhancedDayAvailability, Coordinates } from '../types/index.js';
 
 export const weeklyAvailabilitySchema = {
@@ -285,15 +285,12 @@ export function registerWeeklyAvailability(server: McpServer): void {
         startDate: start_date,
       });
 
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text: summary + '\n\n```json\n' + JSON.stringify(response, null, 2) + '\n```',
-          },
-          uiResource,
-        ],
-      };
+      // Return with Goose MCP-UI metadata for proper rendering
+      return createUIToolResponse({
+        textContent: summary + '\n\n```json\n' + JSON.stringify(response, null, 2) + '\n```',
+        uiResource,
+        uiName: `Weekly Calendar - ${venueName}`,
+      });
     }
   );
 }

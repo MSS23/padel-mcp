@@ -170,3 +170,54 @@ export function addUIResourcesToContent(
 ): Array<{ type: 'text'; text: string } | MCPEmbeddedResource> {
   return [...content, ...resources];
 }
+
+/**
+ * Goose toolUI metadata for MCP-UI rendering
+ * Required for Goose 1.18+ to render embedded resources as interactive UI
+ */
+export interface GooseToolUIMeta {
+  _meta: {
+    goose: {
+      toolUI: {
+        displayType: 'inline' | 'sidecar';
+        name: string;
+        renderer: 'mcp-ui';
+      };
+    };
+  };
+}
+
+/**
+ * Create a full tool response with Goose MCP-UI metadata
+ * This format is required for Goose 1.18+ to render interactive UI
+ */
+export function createUIToolResponse(params: {
+  textContent: string;
+  uiResource: MCPEmbeddedResource;
+  uiName?: string;
+  displayType?: 'inline' | 'sidecar';
+}): {
+  content: Array<{ type: 'text'; text: string } | MCPEmbeddedResource>;
+  _meta: GooseToolUIMeta['_meta'];
+} {
+  const { textContent, uiResource, uiName = 'Padel Finder', displayType = 'inline' } = params;
+
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text: textContent,
+      },
+      uiResource,
+    ],
+    _meta: {
+      goose: {
+        toolUI: {
+          displayType,
+          name: uiName,
+          renderer: 'mcp-ui',
+        },
+      },
+    },
+  };
+}
