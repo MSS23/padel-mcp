@@ -352,47 +352,141 @@ export const BASE_STYLES = `
 
 /**
  * JavaScript for interactive buttons
+ * Enhanced with error handling, loading states, and ResizeObserver (Shopify MCP-UI best practices)
  */
 export const UI_SCRIPTS = `
+  // Helper to show loading state on buttons
+  function setButtonLoading(btn, loading) {
+    if (!btn) return;
+    btn.disabled = loading;
+    if (loading) {
+      btn.dataset.originalText = btn.textContent;
+      btn.textContent = 'Loading...';
+      btn.style.opacity = '0.7';
+    } else {
+      btn.textContent = btn.dataset.originalText || btn.textContent;
+      btn.style.opacity = '1';
+    }
+  }
+
   function bookSlot(url) {
-    if (url) {
+    if (!url) return;
+    try {
+      const btn = event?.target;
+      setButtonLoading(btn, true);
       window.open(url, '_blank');
-      window.parent.postMessage({ type: 'intent', payload: { action: 'book_slot', bookingUrl: url }}, '*');
+      window.parent.postMessage({
+        type: 'intent',
+        payload: { action: 'book_slot', bookingUrl: url }
+      }, '*');
+      setTimeout(() => setButtonLoading(btn, false), 1000);
+    } catch (err) {
+      console.error('Book slot error:', err);
     }
   }
 
   function addToCalendar(url) {
-    if (url) {
+    if (!url) return;
+    try {
+      const btn = event?.target;
+      setButtonLoading(btn, true);
       window.open(url, '_blank');
-      window.parent.postMessage({ type: 'intent', payload: { action: 'add_calendar', calendarUrl: url }}, '*');
+      window.parent.postMessage({
+        type: 'intent',
+        payload: { action: 'add_calendar', calendarUrl: url }
+      }, '*');
+      setTimeout(() => setButtonLoading(btn, false), 1000);
+    } catch (err) {
+      console.error('Add to calendar error:', err);
     }
   }
 
   function saveVenue(id, name) {
-    window.parent.postMessage({ type: 'tool', payload: { toolName: 'save_favorite_venue', params: { venue_id: id, venue_name: name }}}, '*');
+    if (!id) return;
+    try {
+      window.parent.postMessage({
+        type: 'tool',
+        payload: {
+          toolName: 'save_favorite_venue',
+          params: { venue_id: id, venue_name: name }
+        }
+      }, '*');
+    } catch (err) {
+      console.error('Save venue error:', err);
+    }
   }
 
   function showDaySlots(date) {
-    window.parent.postMessage({ type: 'tool', payload: { toolName: 'check_availability', params: { date: date }}}, '*');
+    if (!date) return;
+    try {
+      const el = event?.target?.closest('.calendar-day');
+      if (el) el.style.opacity = '0.6';
+      window.parent.postMessage({
+        type: 'tool',
+        payload: {
+          toolName: 'check_availability',
+          params: { date: date }
+        }
+      }, '*');
+    } catch (err) {
+      console.error('Show day slots error:', err);
+    }
   }
 
   function submitSearch(e) {
     e.preventDefault();
-    const fd = new FormData(e.target);
-    window.parent.postMessage({ type: 'tool', payload: {
-      toolName: 'find_available_games',
-      params: {
-        location: fd.get('location'),
-        date: fd.get('date'),
-        preferred_time_start: fd.get('time_start') || undefined,
-        preferred_time_end: fd.get('time_end') || undefined,
-        max_distance_km: parseInt(fd.get('max_distance')) || 10
+    const form = e.target;
+    const fd = new FormData(form);
+
+    // Basic validation
+    const location = fd.get('location')?.toString().trim();
+    if (!location) {
+      const input = form.querySelector('[name="location"]');
+      if (input) {
+        input.style.borderColor = '#ef4444';
+        input.focus();
       }
-    }}, '*');
+      return;
+    }
+
+    // Show loading state
+    const btn = form.querySelector('button[type="submit"]');
+    setButtonLoading(btn, true);
+
+    try {
+      window.parent.postMessage({
+        type: 'tool',
+        payload: {
+          toolName: 'find_available_games',
+          params: {
+            location: location,
+            date: fd.get('date'),
+            preferred_time_start: fd.get('time_start') || undefined,
+            preferred_time_end: fd.get('time_end') || undefined,
+            max_distance_km: parseInt(fd.get('max_distance')) || 10
+          }
+        }
+      }, '*');
+    } catch (err) {
+      console.error('Submit search error:', err);
+      setButtonLoading(btn, false);
+    }
   }
 
+  // Notify parent of size changes
+  function notifySize() {
+    window.parent.postMessage({
+      type: 'ui-size-change',
+      payload: { height: document.body.scrollHeight }
+    }, '*');
+  }
+
+  // Use ResizeObserver for dynamic content changes
   window.addEventListener('load', () => {
-    window.parent.postMessage({ type: 'ui-size-change', payload: { height: document.body.scrollHeight }}, '*');
+    notifySize();
+    if (typeof ResizeObserver !== 'undefined') {
+      new ResizeObserver(notifySize).observe(document.body);
+    }
   });
 `;
 
