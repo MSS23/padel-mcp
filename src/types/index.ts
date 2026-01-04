@@ -172,3 +172,45 @@ export interface PlaytomicTenantDetails extends PlaytomicTenant {
   facilities?: string[];
   resources?: PlaytomicResource[];
 }
+
+// Weather information for a slot
+export interface WeatherInfo {
+  temperature_c: number;
+  feels_like_c: number;
+  condition: string;
+  condition_emoji: string;
+  precipitation_chance: number;
+  wind_speed_kmh: number;
+  humidity: number;
+  is_playable: boolean;
+  playability_note?: string;
+}
+
+// Enhanced time slot with weather and booking links
+export interface EnhancedTimeSlot extends TimeSlot {
+  weather?: WeatherInfo;
+  booking_url?: string;
+  calendar_link?: string;
+  venue_address?: string;
+  venue_coordinates?: Coordinates;
+  venue_phone?: string;
+  venue_website?: string;
+}
+
+// Enhanced venue availability with weather
+export interface EnhancedVenueAvailability extends VenueAvailability {
+  enhanced_slots: EnhancedTimeSlot[];
+}
+
+// Daily weather summary for weekly view
+export interface DailyWeatherSummary {
+  emoji: string;
+  temp_high: number;
+  temp_low: number;
+  condition: string;
+}
+
+// Enhanced day availability with weather
+export interface EnhancedDayAvailability extends DayAvailability {
+  weather?: DailyWeatherSummary;
+}
