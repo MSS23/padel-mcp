@@ -1,8 +1,7 @@
 /**
- * Shared CSS Styles for MCP-UI Components
+ * Professional CSS Styles for MCP-UI Components
  *
- * These styles are embedded in each UI component to ensure consistent styling
- * across all interactive elements in the chat interface.
+ * Clean, modern design for client demos.
  */
 
 export const BASE_STYLES = `
@@ -13,237 +12,204 @@ export const BASE_STYLES = `
   }
 
   body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     font-size: 14px;
-    line-height: 1.5;
-    color: #333;
-    background: transparent;
+    line-height: 1.6;
+    color: #1a1a2e;
+    background: #fafbfc;
+    padding: 12px;
   }
 
-  /* Card Components */
-  .slot-card, .venue-card {
-    border: 1px solid #e0e0e0;
-    border-radius: 12px;
-    padding: 16px;
-    margin: 8px 0;
-    background: white;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
-    transition: box-shadow 0.2s, transform 0.2s;
+  /* Professional Card Design */
+  .slot-card {
+    background: #ffffff;
+    border: 1px solid #e1e4e8;
+    border-radius: 16px;
+    padding: 20px;
+    margin: 12px 0;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
 
-  .slot-card:hover, .venue-card:hover {
-    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-    transform: translateY(-1px);
+  .slot-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.06);
   }
 
-  .slot-header, .venue-header {
+  /* Header with Venue & Price */
+  .slot-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
+    align-items: flex-start;
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #f0f0f0;
   }
 
-  .slot-header h3, .venue-header h3 {
+  .slot-header h3 {
     margin: 0;
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 600;
-    color: #1a1a1a;
+    color: #1a1a2e;
+    letter-spacing: -0.3px;
   }
 
   .price {
-    font-size: 18px;
+    font-size: 24px;
     font-weight: 700;
-    color: #2e7d32;
+    color: #0d9488;
+    letter-spacing: -0.5px;
   }
 
-  .slot-details, .venue-details {
-    margin-bottom: 12px;
+  /* Slot Details */
+  .slot-details {
+    margin-bottom: 16px;
   }
 
-  .slot-details p, .venue-details p {
-    margin: 4px 0;
-    color: #666;
-    font-size: 13px;
-  }
-
-  /* Weather Info */
-  .weather-info {
-    background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
-    padding: 10px 14px;
-    border-radius: 8px;
-    margin: 12px 0;
+  .slot-details p {
+    margin: 8px 0;
+    color: #4a5568;
+    font-size: 14px;
     display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
     align-items: center;
+    gap: 8px;
+  }
+
+  .slot-details .time {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a1a2e;
+  }
+
+  /* Weather Info - Compact Single Line */
+  .weather-info {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    padding: 12px 16px;
+    border-radius: 10px;
+    margin: 16px 0;
+    display: flex;
+    align-items: center;
+    gap: 16px;
     font-size: 13px;
+    color: #475569;
   }
 
   .weather-info span {
     display: flex;
     align-items: center;
     gap: 4px;
+    white-space: nowrap;
   }
 
   .playability {
-    width: 100%;
-    margin-top: 6px;
-    font-weight: 500;
+    margin-left: auto;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
   }
 
-  .playability.good { color: #2e7d32; }
-  .playability.warning { color: #f57c00; }
-  .playability.bad { color: #d32f2f; }
+  .playability.good {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .playability.warning {
+    background: #fef3c7;
+    color: #92400e;
+  }
 
   /* Action Buttons */
-  .slot-actions, .card-actions {
+  .slot-actions {
     display: flex;
-    gap: 8px;
-    margin-top: 12px;
-    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
   }
 
   .btn {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 10px 16px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 500;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
     cursor: pointer;
     border: none;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
     text-decoration: none;
   }
 
   .btn-primary {
-    background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+    background: linear-gradient(135deg, #0d9488 0%, #0f766e 100%);
     color: white;
+    flex: 1;
+    padding: 14px 24px;
+    font-size: 15px;
   }
 
   .btn-primary:hover {
-    background: linear-gradient(135deg, #1565c0 0%, #0d47a1 100%);
-    box-shadow: 0 2px 8px rgba(25, 118, 210, 0.4);
+    background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(13, 148, 136, 0.3);
   }
 
   .btn-secondary {
-    background: white;
-    color: #1976d2;
-    border: 1px solid #1976d2;
+    background: #ffffff;
+    color: #0d9488;
+    border: 2px solid #0d9488;
+    padding: 12px 18px;
   }
 
   .btn-secondary:hover {
-    background: #e3f2fd;
+    background: #f0fdfa;
   }
 
-  .btn-icon {
-    background: transparent;
-    border: 1px solid #e0e0e0;
-    padding: 10px;
-    min-width: auto;
+  /* Venue Group Header */
+  .venue-group {
+    margin-bottom: 28px;
   }
 
-  .btn-icon:hover {
-    background: #f5f5f5;
-    border-color: #bdbdbd;
-  }
-
-  .btn-success {
-    background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
-    color: white;
-  }
-
-  .btn-success:hover {
-    background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%);
-  }
-
-  /* Forms */
-  .search-form, .config-form {
-    background: white;
-    padding: 20px;
-    border-radius: 12px;
-    border: 1px solid #e0e0e0;
-  }
-
-  .form-group {
+  .venue-header {
     margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #e2e8f0;
   }
 
-  .form-group label {
-    display: block;
-    margin-bottom: 6px;
-    font-weight: 500;
-    color: #333;
+  .venue-header h3 {
+    margin: 0 0 4px 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: #1a1a2e;
+  }
+
+  .venue-header p {
+    margin: 2px 0;
     font-size: 13px;
+    color: #64748b;
   }
 
-  .form-group input,
-  .form-group select,
-  .form-group textarea {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    font-size: 14px;
-    transition: border-color 0.2s, box-shadow 0.2s;
-  }
-
-  .form-group input:focus,
-  .form-group select:focus,
-  .form-group textarea:focus {
-    outline: none;
-    border-color: #1976d2;
-    box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
-  }
-
-  .form-row {
-    display: flex;
-    gap: 12px;
-  }
-
-  .form-row .form-group {
-    flex: 1;
-  }
-
-  /* Range Slider */
-  input[type="range"] {
-    -webkit-appearance: none;
-    width: 100%;
-    height: 6px;
-    border-radius: 3px;
-    background: #e0e0e0;
-  }
-
-  input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: #1976d2;
-    cursor: pointer;
-    border: 2px solid white;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-  }
-
-  /* Calendar View */
+  /* Calendar Styles */
   .weekly-calendar {
-    border: 1px solid #e0e0e0;
-    border-radius: 12px;
-    padding: 16px;
-    background: white;
+    background: #ffffff;
+    border: 1px solid #e1e4e8;
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   }
 
   .weekly-calendar h2 {
-    margin: 0 0 16px 0;
-    font-size: 16px;
-    font-weight: 600;
+    margin: 0 0 20px 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #1a1a2e;
   }
 
   .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 8px;
+    gap: 10px;
   }
 
   @media (max-width: 600px) {
@@ -253,31 +219,27 @@ export const BASE_STYLES = `
   }
 
   .calendar-day {
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    padding: 10px 8px;
+    background: #fafbfc;
+    border: 2px solid transparent;
+    border-radius: 12px;
+    padding: 14px 10px;
     text-align: center;
     cursor: pointer;
-    transition: all 0.2s;
-    min-height: 80px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
+    transition: all 0.2s ease;
   }
 
   .calendar-day:hover {
-    background: #f5f5f5;
-    border-color: #bdbdbd;
+    background: #f1f5f9;
+    border-color: #cbd5e1;
   }
 
   .calendar-day.has-slots {
-    border-color: #4caf50;
-    background: linear-gradient(180deg, rgba(76, 175, 80, 0.05) 0%, rgba(76, 175, 80, 0.02) 100%);
+    background: #f0fdfa;
+    border-color: #0d9488;
   }
 
   .calendar-day.has-slots:hover {
-    border-color: #2e7d32;
-    background: rgba(76, 175, 80, 0.1);
+    background: #ccfbf1;
   }
 
   .calendar-day.no-slots {
@@ -285,213 +247,160 @@ export const BASE_STYLES = `
     cursor: default;
   }
 
-  .day-header {
-    margin-bottom: 6px;
-  }
-
   .day-name {
     font-weight: 600;
-    font-size: 12px;
-    color: #666;
+    font-size: 11px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
 
   .day-date {
-    font-size: 14px;
-    font-weight: 500;
+    font-size: 18px;
+    font-weight: 700;
+    color: #1a1a2e;
     display: block;
-    margin-top: 2px;
-  }
-
-  .day-weather {
-    font-size: 12px;
     margin: 4px 0;
   }
 
-  .day-slots {
-    font-size: 11px;
-    color: #666;
+  .day-weather {
+    font-size: 13px;
+    margin: 6px 0;
   }
 
   .slot-count {
     display: block;
-    font-weight: 500;
-    color: #2e7d32;
+    font-weight: 600;
+    color: #0d9488;
+    font-size: 12px;
   }
 
   .price-range {
     display: block;
-    color: #666;
+    color: #64748b;
+    font-size: 11px;
   }
 
-  .no-availability {
-    color: #999;
-    font-style: italic;
+  /* Search Form */
+  .search-form {
+    background: #ffffff;
+    padding: 24px;
+    border-radius: 16px;
+    border: 1px solid #e1e4e8;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   }
 
-  /* Utility Classes */
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  .form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #374151;
+    font-size: 13px;
+  }
+
+  .form-group input,
+  .form-group select {
+    width: 100%;
+    padding: 12px 14px;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 14px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    background: #fafbfc;
+  }
+
+  .form-group input:focus,
+  .form-group select:focus {
+    outline: none;
+    border-color: #0d9488;
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+    background: #ffffff;
+  }
+
+  .form-row {
+    display: flex;
+    gap: 16px;
+  }
+
+  .form-row .form-group {
+    flex: 1;
+  }
+
+  /* Utility */
   .text-center { text-align: center; }
-  .text-muted { color: #666; }
-  .text-success { color: #2e7d32; }
-  .text-warning { color: #f57c00; }
-  .text-error { color: #d32f2f; }
+  .text-muted { color: #64748b; }
+  .text-success { color: #0d9488; }
   .mt-2 { margin-top: 8px; }
   .mt-4 { margin-top: 16px; }
-  .mb-2 { margin-bottom: 8px; }
-  .mb-4 { margin-bottom: 16px; }
 
-  /* Loading State */
-  .loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-    color: #666;
+  /* Empty State */
+  .empty-state {
+    text-align: center;
+    padding: 48px 24px;
+    color: #64748b;
   }
 
-  .spinner {
-    width: 20px;
-    height: 20px;
-    border: 2px solid #e0e0e0;
-    border-top-color: #1976d2;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin-right: 10px;
-  }
-
-  @keyframes spin {
-    to { transform: rotate(360deg); }
+  .empty-state p {
+    font-size: 16px;
+    margin-bottom: 8px;
   }
 `;
 
 /**
- * JavaScript helper functions embedded in UI components
+ * JavaScript for interactive buttons
  */
 export const UI_SCRIPTS = `
-  // Book slot - opens booking URL in new tab
-  function bookSlot(bookingUrl) {
-    if (bookingUrl) {
-      window.open(bookingUrl, '_blank');
-      // Notify parent of action
-      window.parent.postMessage({
-        type: 'intent',
-        payload: {
-          action: 'book_slot',
-          bookingUrl: bookingUrl
-        }
-      }, '*');
+  function bookSlot(url) {
+    if (url) {
+      window.open(url, '_blank');
+      window.parent.postMessage({ type: 'intent', payload: { action: 'book_slot', bookingUrl: url }}, '*');
     }
   }
 
-  // Add to calendar - opens calendar link
-  function addToCalendar(calendarUrl) {
-    if (calendarUrl) {
-      window.open(calendarUrl, '_blank');
-      window.parent.postMessage({
-        type: 'intent',
-        payload: {
-          action: 'add_calendar',
-          calendarUrl: calendarUrl
-        }
-      }, '*');
+  function addToCalendar(url) {
+    if (url) {
+      window.open(url, '_blank');
+      window.parent.postMessage({ type: 'intent', payload: { action: 'add_calendar', calendarUrl: url }}, '*');
     }
   }
 
-  // Save venue to favorites
-  function saveVenue(venueId, venueName) {
-    window.parent.postMessage({
-      type: 'tool',
-      payload: {
-        toolName: 'save_favorite_venue',
-        params: {
-          venue_id: venueId,
-          venue_name: venueName
-        }
-      }
-    }, '*');
+  function saveVenue(id, name) {
+    window.parent.postMessage({ type: 'tool', payload: { toolName: 'save_favorite_venue', params: { venue_id: id, venue_name: name }}}, '*');
   }
 
-  // Remove venue from favorites
-  function removeVenue(venueId) {
-    window.parent.postMessage({
-      type: 'tool',
-      payload: {
-        toolName: 'remove_favorite_venue',
-        params: {
-          venue_id: venueId
-        }
-      }
-    }, '*');
-  }
-
-  // Submit search form
-  function submitSearch(event) {
-    event.preventDefault();
-    const form = event.target;
-    const formData = new FormData(form);
-
-    window.parent.postMessage({
-      type: 'tool',
-      payload: {
-        toolName: 'find_available_games',
-        params: {
-          location: formData.get('location'),
-          date: formData.get('date'),
-          preferred_time_start: formData.get('time_start') || undefined,
-          preferred_time_end: formData.get('time_end') || undefined,
-          max_distance_km: parseInt(formData.get('max_distance')) || 10
-        }
-      }
-    }, '*');
-  }
-
-  // Show slots for a specific day
   function showDaySlots(date) {
-    window.parent.postMessage({
-      type: 'tool',
-      payload: {
-        toolName: 'check_availability',
-        params: {
-          date: date
-        }
+    window.parent.postMessage({ type: 'tool', payload: { toolName: 'check_availability', params: { date: date }}}, '*');
+  }
+
+  function submitSearch(e) {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    window.parent.postMessage({ type: 'tool', payload: {
+      toolName: 'find_available_games',
+      params: {
+        location: fd.get('location'),
+        date: fd.get('date'),
+        preferred_time_start: fd.get('time_start') || undefined,
+        preferred_time_end: fd.get('time_end') || undefined,
+        max_distance_km: parseInt(fd.get('max_distance')) || 10
       }
-    }, '*');
+    }}, '*');
   }
 
-  // Check availability at venue
-  function checkVenueAvailability(venueId, venueName, date) {
-    window.parent.postMessage({
-      type: 'tool',
-      payload: {
-        toolName: 'check_availability',
-        params: {
-          venue_id: venueId,
-          venue_name: venueName,
-          date: date || new Date().toISOString().split('T')[0]
-        }
-      }
-    }, '*');
-  }
-
-  // Notify parent of UI size change
-  function notifyResize() {
-    const height = document.body.scrollHeight;
-    window.parent.postMessage({
-      type: 'ui-size-change',
-      payload: { height: height }
-    }, '*');
-  }
-
-  // Auto-resize on load
-  window.addEventListener('load', notifyResize);
-  window.addEventListener('resize', notifyResize);
+  window.addEventListener('load', () => {
+    window.parent.postMessage({ type: 'ui-size-change', payload: { height: document.body.scrollHeight }}, '*');
+  });
 `;
 
 /**
- * Wrap HTML content with styles and scripts
+ * Wrap content with styles
  */
 export function wrapWithStyles(content: string): string {
-  return `
-<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
@@ -502,6 +411,5 @@ export function wrapWithStyles(content: string): string {
   ${content}
   <script>${UI_SCRIPTS}</script>
 </body>
-</html>
-  `.trim();
+</html>`;
 }

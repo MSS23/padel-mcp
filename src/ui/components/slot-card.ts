@@ -61,25 +61,27 @@ export function generateSlotCardHTML(slot: EnhancedTimeSlot, options?: {
   const bookingUrl = slot.booking_url ? escapeHtml(slot.booking_url) : '';
   const calendarLink = slot.calendar_link ? escapeHtml(slot.calendar_link) : '';
 
+  // Price formatting - remove trailing zeros
+  const priceDisplay = slot.price % 1 === 0 ? slot.price.toFixed(0) : slot.price.toFixed(2);
+
   const cardHtml = `
     <div class="slot-card" data-venue-id="${escapeHtml(slot.venue_id)}" data-slot-time="${escapeHtml(slot.start_time)}">
       ${showVenueName ? `
         <div class="slot-header">
           <h3>${venueName}</h3>
-          <span class="price">${slot.currency}${slot.price.toFixed(2)}</span>
+          <span class="price">${slot.currency}${priceDisplay}</span>
         </div>
       ` : `
         <div class="slot-header">
           <h3>${startTime} - ${endTime}</h3>
-          <span class="price">${slot.currency}${slot.price.toFixed(2)}</span>
+          <span class="price">${slot.currency}${priceDisplay}</span>
         </div>
       `}
 
       <div class="slot-details">
-        ${showVenueName ? `<p class="time">🕐 ${startTime} - ${endTime} (${slot.duration_minutes}min)</p>` : ''}
-        <p class="court">🎾 ${courtName}</p>
-        ${venueAddress && showVenueName ? `<p class="address">📍 ${venueAddress}</p>` : ''}
-        ${slot.venue_phone ? `<p class="phone">📞 ${escapeHtml(slot.venue_phone)}</p>` : ''}
+        ${showVenueName ? `<p><span class="time">${startTime} - ${endTime}</span> · ${slot.duration_minutes}min</p>` : ''}
+        <p>${courtName}</p>
+        ${venueAddress && showVenueName ? `<p>${venueAddress}</p>` : ''}
       </div>
 
       ${weatherHtml}
@@ -87,17 +89,14 @@ export function generateSlotCardHTML(slot: EnhancedTimeSlot, options?: {
       <div class="slot-actions">
         ${bookingUrl ? `
           <button class="btn btn-primary" onclick="bookSlot('${bookingUrl}')">
-            🎾 Book Now
+            Book Now
           </button>
         ` : ''}
         ${calendarLink ? `
           <button class="btn btn-secondary" onclick="addToCalendar('${calendarLink}')">
-            📅 Calendar
+            Add to Calendar
           </button>
         ` : ''}
-        <button class="btn btn-icon" onclick="saveVenue('${escapeHtml(slot.venue_id)}', '${venueName}')" title="Save to favorites">
-          ⭐
-        </button>
       </div>
     </div>
   `;
@@ -117,9 +116,9 @@ export function generateSlotCardsHTML(slots: EnhancedTimeSlot[], options?: {
 
   if (slots.length === 0) {
     return wrapWithStyles(`
-      <div class="text-center text-muted" style="padding: 40px;">
-        <p style="font-size: 18px;">😔 No available slots found</p>
-        <p class="mt-2">Try adjusting your search criteria</p>
+      <div class="empty-state">
+        <p>No available slots found</p>
+        <p class="text-muted">Try adjusting your search criteria</p>
       </div>
     `);
   }
@@ -142,15 +141,14 @@ export function generateSlotCardsHTML(slots: EnhancedTimeSlot[], options?: {
     for (const [venueName, venueSlots] of slotsByVenue) {
       const firstSlot = venueSlots[0];
       const distanceInfo = (firstSlot as any).distance_km
-        ? ` (${(firstSlot as any).distance_km}km away)`
+        ? ` · ${(firstSlot as any).distance_km}km`
         : '';
 
       content += `
-        <div class="venue-group" style="margin-bottom: 24px;">
-          <div class="venue-header" style="margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #e0e0e0;">
-            <h3 style="margin: 0; font-size: 18px;">${escapeHtml(venueName)}${distanceInfo}</h3>
-            ${firstSlot.venue_address ? `<p class="text-muted" style="margin: 4px 0 0 0; font-size: 13px;">📍 ${escapeHtml(firstSlot.venue_address)}</p>` : ''}
-            ${firstSlot.venue_phone ? `<p class="text-muted" style="margin: 2px 0 0 0; font-size: 13px;">📞 ${escapeHtml(firstSlot.venue_phone)}</p>` : ''}
+        <div class="venue-group">
+          <div class="venue-header">
+            <h3>${escapeHtml(venueName)}</h3>
+            ${firstSlot.venue_address || distanceInfo ? `<p>${firstSlot.venue_address ? escapeHtml(firstSlot.venue_address) : ''}${distanceInfo}</p>` : ''}
           </div>
       `;
 
@@ -161,8 +159,8 @@ export function generateSlotCardsHTML(slots: EnhancedTimeSlot[], options?: {
 
       if (venueSlots.length > maxSlotsPerVenue) {
         content += `
-          <p class="text-muted text-center" style="margin-top: 8px;">
-            ... and ${venueSlots.length - maxSlotsPerVenue} more slots at this venue
+          <p class="text-muted text-center mt-2">
+            +${venueSlots.length - maxSlotsPerVenue} more slots available
           </p>
         `;
       }
