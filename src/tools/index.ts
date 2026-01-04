@@ -16,6 +16,15 @@ import { registerFavorites } from './favorites.js';
 import { registerWeeklyAvailability } from './weekly-availability.js';
 import { registerFindCheapest } from './find-cheapest.js';
 import { registerPeakHours } from './peak-hours.js';
+import { registerSearchWithFilters } from './search-with-filters.js';
+import { registerQuickSearch } from './quick-search.js';
+import { registerCheckAlerts } from './check-alerts.js';
+import { registerTrackBooking } from './track-booking.js';
+import { registerBookingHistory } from './booking-history.js';
+import { registerCalendarFeed } from './calendar-feed.js';
+import { registerFriendsTools } from './friends.js';
+import { registerGroupGames } from './group-games.js';
+import { registerInvite } from './invite.js';
 
 /**
  * Register all MCP tools with the server
@@ -35,6 +44,23 @@ export function registerTools(server: McpServer): void {
   registerWeeklyAvailability(server);
   registerFindCheapest(server);
   registerPeakHours(server);
+
+  // Phase 5 tools - Enhanced Search
+  registerSearchWithFilters(server);
+  registerQuickSearch(server);
+
+  // Phase 5 tools - Alerts & Notifications
+  registerCheckAlerts(server);
+
+  // Phase 5 tools - Booking & Calendar
+  registerTrackBooking(server);
+  registerBookingHistory(server);
+  registerCalendarFeed(server);
+
+  // Phase 5 tools - Social & Multi-Player
+  registerFriendsTools(server);
+  registerGroupGames(server);
+  registerInvite(server);
 }
 
 // Re-export schemas for documentation
@@ -49,3 +75,12 @@ export { saveFavoriteSchema, removeFavoriteSchema, listFavoritesSchema, quickChe
 export { weeklyAvailabilitySchema } from './weekly-availability.js';
 export { findCheapestSchema } from './find-cheapest.js';
 export { peakHoursSchema } from './peak-hours.js';
+export { searchWithFiltersSchema } from './search-with-filters.js';
+export { quickSearchSchema } from './quick-search.js';
+export { checkAlertsSchema } from './check-alerts.js';
+export { trackBookingSchema, cancelBookingSchema, updateBookingSchema } from './track-booking.js';
+export { bookingHistorySchema, bookingStatsSchema } from './booking-history.js';
+export { calendarFeedSchema } from './calendar-feed.js';
+export { addFriendSchema, listFriendsSchema, removeFriendSchema, findPlayersSchema, updateFriendSchema } from './friends.js';
+export { createGroupGameSchema, listGamesSchema, gameStatusSchema, confirmPlayerSchema, cancelGameSchema, addPlayersSchema } from './group-games.js';
+export { generateInviteSchema } from './invite.js';

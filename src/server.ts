@@ -62,7 +62,7 @@ async function main(): Promise<void> {
       console.log('New SSE connection');
 
       const transport = new SSEServerTransport('/messages', res);
-      const sessionId = crypto.randomUUID();
+      const sessionId = transport.sessionId;
       transports.set(sessionId, transport);
 
       // Clean up on disconnect

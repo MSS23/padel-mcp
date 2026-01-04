@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@mcp-ui/server": "^5.16.3",
     "@modelcontextprotocol/sdk": "^1.10.0",
     "zod": "^3.23.0"
   },

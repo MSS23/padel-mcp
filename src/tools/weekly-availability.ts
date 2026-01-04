@@ -10,6 +10,7 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { checkVenueAvailability, findNearbyVenues, getVenueDetails } from '../services/playtomic.js';
 import { parseLocation } from '../services/geocoding.js';
 import { getDailyWeatherSummary } from '../services/weather.js';
+import { createWeeklyCalendarResource } from '../utils/ui-resources.js';
 import type { DayAvailability, EnhancedDayAvailability, Coordinates } from '../types/index.js';
 
 export const weeklyAvailabilitySchema = {
@@ -276,12 +277,21 @@ export function registerWeeklyAvailability(server: McpServer): void {
         },
       };
 
+      // Create interactive calendar widget for chat clients
+      const uiResource = createWeeklyCalendarResource({
+        venueName: venueName,
+        venueId: venueId!,
+        days: weekData,
+        startDate: start_date,
+      });
+
       return {
         content: [
           {
             type: 'text' as const,
             text: summary + '\n\n```json\n' + JSON.stringify(response, null, 2) + '\n```',
           },
+          uiResource,
         ],
       };
     }

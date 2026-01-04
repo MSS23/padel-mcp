@@ -14,6 +14,8 @@ import type {
   PlaytomicTenant,
   PlaytomicTenantDetails,
   PlaytomicAvailabilityResponse,
+  SearchFilters,
+  EnhancedTimeSlotWithProperties,
 } from '../types/index.js';
 import { cache } from './cache.js';
 
@@ -293,6 +295,134 @@ export async function getVenueDetails(venueId: string): Promise<VenueDetails | n
 }
 
 /**
+ * Parse court name to determine if indoor/outdoor
+ */
+function parseCourtType(courtName: string, properties?: { court_type?: string }): 'indoor' | 'outdoor' | undefined {
+  // Check explicit property first
+  if (properties?.court_type) {
+    const type = properties.court_type.toLowerCase();
+    if (type.includes('indoor') || type.includes('cubierta') || type.includes('covered')) {
+      return 'indoor';
+    }
+    if (type.includes('outdoor') || type.includes('exterior') || type.includes('descubierta')) {
+      return 'outdoor';
+    }
+  }
+
+  // Parse from court name
+  const name = courtName.toLowerCase();
+  if (name.includes('indoor') || name.includes('cubierta') || name.includes('covered') || name.includes('interior')) {
+    return 'indoor';
+  }
+  if (name.includes('outdoor') || name.includes('exterior') || name.includes('descubierta') || name.includes('open')) {
+    return 'outdoor';
+  }
+
+  return undefined;
+}
+
+/**
+ * Parse surface type from properties or name
+ */
+function parseSurfaceType(courtName: string, properties?: { surface?: string }): string | undefined {
+  if (properties?.surface) {
+    return properties.surface;
+  }
+
+  const name = courtName.toLowerCase();
+  if (name.includes('cesped') || name.includes('grass') || name.includes('hierba')) {
+    return 'artificial_grass';
+  }
+  if (name.includes('cement') || name.includes('hormigon') || name.includes('concrete')) {
+    return 'cement';
+  }
+  if (name.includes('clay') || name.includes('tierra') || name.includes('arcilla')) {
+    return 'clay';
+  }
+
+  return undefined;
+}
+
+/**
+ * Check if court has lighting (usually available for evening slots)
+ */
+function hasLighting(courtName: string): boolean {
+  const name = courtName.toLowerCase();
+  return name.includes('luz') || name.includes('light') || name.includes('iluminación');
+}
+
+/**
+ * Check availability with court properties
+ */
+export async function checkVenueAvailabilityWithProperties(
+  venueId: string,
+  date: string,
+  venueName?: string
+): Promise<EnhancedTimeSlotWithProperties[]> {
+  const startMin = `${date}T00:00:00`;
+  const startMax = `${date}T23:59:59`;
+
+  const params = new URLSearchParams({
+    sport_id: 'PADEL',
+    tenant_id: venueId,
+    start_min: startMin,
+    start_max: startMax,
+  });
+
+  const url = `${PLAYTOMIC_BASE_URL}/availability?${params}`;
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': USER_AGENT,
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Playtomic API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = (await response.json()) as PlaytomicAvailabilityResponse;
+
+    // Create a map of resource IDs to full resource info
+    const resourceMap = new Map<string, { name: string; properties?: { court_type?: string; surface?: string } }>();
+    for (const resource of data.resources || []) {
+      resourceMap.set(resource.resource_id, {
+        name: resource.name,
+        properties: resource.properties,
+      });
+    }
+
+    return (data.slots || []).map((slot) => {
+      const resource = resourceMap.get(slot.resource_id);
+      const courtName = resource?.name ?? 'Court';
+
+      return {
+        venue_id: venueId,
+        venue_name: venueName ?? venueId,
+        court_name: courtName,
+        court_id: slot.resource_id,
+        start_time: slot.start_time,
+        end_time: slot.end_time,
+        duration_minutes: slot.duration,
+        price: slot.price,
+        currency: slot.currency || 'EUR',
+        available: true,
+        court_type: parseCourtType(courtName, resource?.properties),
+        surface: parseSurfaceType(courtName, resource?.properties),
+        has_lighting: hasLighting(courtName),
+      };
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(`Failed to check availability: ${error.message}`);
+    }
+    throw error;
+  }
+}
+
+/**
  * Find available games with extended filtering options
  */
 export async function findAvailableGamesFiltered(
@@ -344,6 +474,105 @@ export async function findAvailableGamesFiltered(
 
         // Price filter
         if (maxPrice && slot.price > maxPrice) {
+          return false;
+        }
+
+        return true;
+      });
+
+      const slotsWithDistance = filteredSlots.map((slot) => ({
+        ...slot,
+        distance_km: venue.distance_km,
+      }));
+
+      allSlots.push(...slotsWithDistance);
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    } catch (error) {
+      console.error(`Error checking venue ${venue.name}: ${error}`);
+    }
+  }
+
+  // Sort based on preference
+  switch (sortBy) {
+    case 'price':
+      return allSlots.sort((a, b) => a.price - b.price);
+    case 'distance':
+      return allSlots.sort((a, b) => (a.distance_km ?? 0) - (b.distance_km ?? 0));
+    case 'time':
+    default:
+      return allSlots.sort((a, b) => a.start_time.localeCompare(b.start_time));
+  }
+}
+
+/**
+ * Find available games with advanced filtering including court properties
+ */
+export async function findAvailableGamesWithFilters(
+  coordinates: Coordinates,
+  date: string,
+  options: {
+    preferredTimeStart?: string;
+    preferredTimeEnd?: string;
+    maxDistanceKm?: number;
+    filters?: SearchFilters;
+    sortBy?: 'time' | 'price' | 'distance';
+  } = {}
+): Promise<(EnhancedTimeSlotWithProperties & { distance_km?: number })[]> {
+  const {
+    preferredTimeStart,
+    preferredTimeEnd,
+    maxDistanceKm = 10,
+    filters = {},
+    sortBy = 'time',
+  } = options;
+
+  const venues = await findNearbyVenues(coordinates, maxDistanceKm, 10);
+
+  if (venues.length === 0) {
+    return [];
+  }
+
+  const allSlots: (EnhancedTimeSlotWithProperties & { distance_km?: number })[] = [];
+
+  for (const venue of venues) {
+    try {
+      const slots = await checkVenueAvailabilityWithProperties(venue.id, date, venue.name);
+
+      const filteredSlots = slots.filter((slot) => {
+        // Time filter
+        if (preferredTimeStart || preferredTimeEnd) {
+          const slotTime = slot.start_time.split('T')[1]?.substring(0, 5) ?? '00:00';
+          if (preferredTimeStart && slotTime < preferredTimeStart) return false;
+          if (preferredTimeEnd && slotTime > preferredTimeEnd) return false;
+        }
+
+        // Court type filter
+        if (filters.court_type && filters.court_type !== 'any') {
+          if (slot.court_type && slot.court_type !== filters.court_type) {
+            return false;
+          }
+        }
+
+        // Surface filter
+        if (filters.surface && filters.surface !== 'any') {
+          if (slot.surface && slot.surface !== filters.surface) {
+            return false;
+          }
+        }
+
+        // Duration filter
+        if (filters.min_duration_minutes && slot.duration_minutes < filters.min_duration_minutes) {
+          return false;
+        }
+
+        // Price filter
+        if (filters.max_price && slot.price > filters.max_price) {
+          return false;
+        }
+
+        // Lighting filter
+        if (filters.has_lighting && !slot.has_lighting) {
           return false;
         }
 

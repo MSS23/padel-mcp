@@ -47,30 +47,31 @@ export function generateGoogleCalendarLink(params: CalendarEventParams): string 
  */
 export function generateSlotCalendarLink(params: {
   venueName: string;
-  venueAddress: string;
-  courtName: string;
+  venueAddress?: string;
+  courtName?: string;
   startTime: string;
   endTime: string;
-  price: number;
-  currency: string;
+  price?: number;
+  currency?: string;
   bookingUrl?: string;
 }): string {
   const { venueName, venueAddress, courtName, startTime, endTime, price, currency, bookingUrl } = params;
 
-  const description = [
-    `Court: ${courtName}`,
-    `Price: ${currency}${price}`,
-    '',
-    bookingUrl ? `Book here: ${bookingUrl}` : '',
-    '',
-    'Created with Padel Finder MCP',
-  ]
-    .filter(Boolean)
-    .join('\n');
+  const descriptionParts: string[] = [];
+  if (courtName) descriptionParts.push(`Court: ${courtName}`);
+  if (price !== undefined && currency) descriptionParts.push(`Price: ${currency}${price}`);
+  if (bookingUrl) {
+    descriptionParts.push('');
+    descriptionParts.push(`Book here: ${bookingUrl}`);
+  }
+  descriptionParts.push('');
+  descriptionParts.push('Created with Padel Finder MCP');
+
+  const description = descriptionParts.join('\n');
 
   return generateGoogleCalendarLink({
     title: `🎾 Padel at ${venueName}`,
-    location: venueAddress,
+    location: venueAddress ?? venueName,
     start: startTime,
     end: endTime,
     description,

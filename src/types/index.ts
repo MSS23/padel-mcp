@@ -214,3 +214,110 @@ export interface DailyWeatherSummary {
 export interface EnhancedDayAvailability extends DayAvailability {
   weather?: DailyWeatherSummary;
 }
+
+// ============================================
+// Phase 5: Enhanced Types
+// ============================================
+
+// Court type filter options
+export type CourtType = 'indoor' | 'outdoor' | 'any';
+export type CourtSurface = 'artificial_grass' | 'cement' | 'clay' | 'any';
+export type SkillLevel = 'beginner' | 'intermediate' | 'advanced';
+
+// Search filters
+export interface SearchFilters {
+  court_type?: CourtType;
+  surface?: CourtSurface;
+  min_duration_minutes?: number;
+  max_price?: number;
+  has_lighting?: boolean;
+}
+
+// Quick search presets
+export type QuickSearchPreset = 'tonight' | 'tomorrow' | 'weekend' | 'next_week' | 'cheapest_today';
+
+// Enhanced time slot with court properties
+export interface EnhancedTimeSlotWithProperties extends EnhancedTimeSlot {
+  court_type?: 'indoor' | 'outdoor';
+  surface?: string;
+  has_lighting?: boolean;
+}
+
+// Persistent alert with webhook support
+export interface PersistentAlert {
+  id: string;
+  venue_id: string;
+  venue_name: string;
+  date: string;
+  time_start: string;
+  time_end: string;
+  created_at: string;
+  active: boolean;
+  notification_method: 'webhook' | 'log' | 'callback';
+  webhook_url?: string;
+  last_checked?: string;
+  triggered: boolean;
+}
+
+// Alert check result
+export interface AlertCheckResult {
+  alert: PersistentAlert;
+  available_slots: TimeSlot[];
+  notified: boolean;
+}
+
+// Booking record
+export interface BookingRecord {
+  id: string;
+  venue_id: string;
+  venue_name: string;
+  court_name: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  price: number;
+  currency: string;
+  booking_url?: string;
+  calendar_link?: string;
+  booked_at: string;
+  status: 'confirmed' | 'cancelled' | 'completed';
+  players: string[];
+  notes?: string;
+}
+
+// Friend/player record
+export interface Friend {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  skill_level?: SkillLevel;
+  preferred_times?: ('morning' | 'afternoon' | 'evening' | 'weekend')[];
+  added_at: string;
+}
+
+// Group game coordination
+export interface GroupGame {
+  id: string;
+  venue_id: string;
+  venue_name: string;
+  court_name?: string;
+  date: string;
+  start_time: string;
+  end_time?: string;
+  max_players: number;
+  confirmed_players: string[];
+  pending_invites: string[];
+  status: 'open' | 'full' | 'cancelled' | 'completed';
+  created_at: string;
+  booking_url?: string;
+  notes?: string;
+}
+
+// Game invitation
+export interface GameInvitation {
+  invite_link: string;
+  share_message: string;
+  calendar_link: string;
+  invitees: string[];
+}

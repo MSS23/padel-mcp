@@ -170,3 +170,8 @@ class PreferencesService {
 
 // Export singleton instance
 export const preferences = new PreferencesService();
+
+// Helper function for tools
+export async function getPreferences(): Promise<UserPreferences> {
+  return preferences.getPreferences();
+}
