@@ -12,6 +12,8 @@ import { generateWeeklyCalendarHTML, generateWeeklyListHTML } from '../ui/compon
 import { generateEmptyStateHTML, type EmptyStateParams } from '../ui/components/empty-state.js';
 import { generatePriceComparisonHTML, type PriceSlot, type VenuePrice } from '../ui/components/price-card.js';
 import { generateInteractiveSearchHTML, generateCompactSearchHTML, type InteractiveSearchParams } from '../ui/components/interactive-search.js';
+import { generateCheckoutWizardHTML, type BookingSlot, type CheckoutConfig } from '../ui/components/checkout-flow.js';
+import { generateSearchBarHTML, type SearchBarConfig } from '../ui/components/search-bar.js';
 
 /**
  * MCP Embedded Resource type for UI content
@@ -240,6 +242,38 @@ export function createCompactSearchResource(params?: InteractiveSearchParams): M
     type: 'resource' as const,
     resource: {
       uri: `ui://padel-finder/compact-search/${Date.now()}`,
+      mimeType: 'text/html' as const,
+      text: htmlContent,
+    },
+  };
+}
+
+/**
+ * Create an embedded resource for the checkout wizard
+ */
+export function createCheckoutResource(config: CheckoutConfig): MCPEmbeddedResource {
+  const htmlContent = generateCheckoutWizardHTML(config);
+
+  return {
+    type: 'resource' as const,
+    resource: {
+      uri: `ui://padel-finder/checkout/${config.slot.venueId}/${Date.now()}`,
+      mimeType: 'text/html' as const,
+      text: htmlContent,
+    },
+  };
+}
+
+/**
+ * Create an embedded resource for the inline search bar with filters
+ */
+export function createSearchBarResource(config?: SearchBarConfig): MCPEmbeddedResource {
+  const htmlContent = generateSearchBarHTML(config);
+
+  return {
+    type: 'resource' as const,
+    resource: {
+      uri: `ui://padel-finder/search-bar/${Date.now()}`,
       mimeType: 'text/html' as const,
       text: htmlContent,
     },

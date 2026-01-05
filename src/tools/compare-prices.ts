@@ -65,7 +65,8 @@ export function registerComparePrices(server: McpServer): void {
         date,
         time_start,
         time_end,
-        maxDistanceKm
+        maxDistanceKm,
+        location
       );
 
       if (slots.length === 0) {

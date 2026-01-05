@@ -93,7 +93,8 @@ export function registerFindAvailableGames(server: McpServer): void {
         date,
         preferred_time_start,
         preferred_time_end,
-        maxDistanceKm
+        maxDistanceKm,
+        location // Pass location for mock data
       );
 
       const limitedSlots = slots.slice(0, maxResultCount);

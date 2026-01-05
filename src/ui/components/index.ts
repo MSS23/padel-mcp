@@ -30,3 +30,9 @@ export { generateBookingModalHTML, generateModalContainerHTML, generateModalScri
 
 // Compare mode
 export { generateCompareBarHTML, generateCompareResultsHTML, generateCompareScript, type CompareBarConfig } from './compare-bar.js';
+
+// Checkout flow (multi-step booking wizard)
+export { generateCheckoutWizardHTML, getCheckoutStyles, type BookingSlot, type CheckoutConfig } from './checkout-flow.js';
+
+// Search bar (compact search with filters)
+export { generateSearchBarHTML, getSearchBarScripts, getSearchBarStyles, type SearchBarConfig, type FilterChip } from './search-bar.js';

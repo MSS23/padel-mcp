@@ -11,13 +11,14 @@ export const UI_SCRIPTS = `const ToastSystem={container:null,init(){if(!this.con
 /**
  * Wrap content with styles
  */
-export function wrapWithStyles(content: string): string {
+export function wrapWithStyles(content: string, additionalStyles?: string): string {
+  const styles = additionalStyles ? BASE_STYLES + additionalStyles : BASE_STYLES;
   return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>${BASE_STYLES}</style>
+  <style>${styles}</style>
 </head>
 <body>
   ${content}

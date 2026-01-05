@@ -22,12 +22,18 @@ import { cache } from './cache.js';
 const PLAYTOMIC_BASE_URL = 'https://api.playtomic.io/v1';
 const USER_AGENT = 'PadelFinderMCP/1.0';
 
-// Mock data for demo/testing when API returns no results
-const MOCK_VENUES: Venue[] = [
-  { id: 'mock-1', name: 'Club Padel Madrid Centro', address: 'Calle Gran Vía 42', city: 'Madrid', coordinates: { latitude: 40.4200, longitude: -3.7025 }, distance_km: 1.2, platform: 'playtomic', playtomic_status: 'ACTIVE' },
-  { id: 'mock-2', name: 'Padel Indoor Retiro', address: 'Av. Menéndez Pelayo 61', city: 'Madrid', coordinates: { latitude: 40.4100, longitude: -3.6800 }, distance_km: 2.5, platform: 'playtomic', playtomic_status: 'ACTIVE' },
-  { id: 'mock-3', name: 'Club Deportivo Chamartín', address: 'Paseo de la Castellana 259', city: 'Madrid', coordinates: { latitude: 40.4650, longitude: -3.6880 }, distance_km: 4.1, platform: 'playtomic', playtomic_status: 'ACTIVE' },
-];
+// Mock venue templates - location will be filled in dynamically
+function getMockVenues(location: string = 'your area'): Venue[] {
+  const cityName = location.split(',')[0].trim() || 'your area';
+  return [
+    { id: 'mock-1', name: `${cityName} Padel Club`, address: `123 Main Street, ${cityName}`, city: cityName, coordinates: { latitude: 51.5074, longitude: -0.1278 }, distance_km: 1.2, platform: 'playtomic', playtomic_status: 'ACTIVE' },
+    { id: 'mock-2', name: `${cityName} Indoor Padel`, address: `456 Sports Avenue, ${cityName}`, city: cityName, coordinates: { latitude: 51.5100, longitude: -0.1300 }, distance_km: 2.5, platform: 'playtomic', playtomic_status: 'ACTIVE' },
+    { id: 'mock-3', name: `${cityName} Sports Centre`, address: `789 Athletic Way, ${cityName}`, city: cityName, coordinates: { latitude: 51.5200, longitude: -0.1400 }, distance_km: 4.1, platform: 'playtomic', playtomic_status: 'ACTIVE' },
+  ];
+}
+
+// Store the last searched location for mock data
+let lastSearchedLocation: string = 'London';
 
 function generateMockSlots(venueId: string, venueName: string, date: string): TimeSlot[] {
   const slots: TimeSlot[] = [];
@@ -208,14 +214,20 @@ export async function findAvailableGames(
   date: string,
   preferredTimeStart?: string, // HH:mm format
   preferredTimeEnd?: string, // HH:mm format
-  maxDistanceKm: number = 10
+  maxDistanceKm: number = 10,
+  locationName?: string // For mock data fallback
 ): Promise<TimeSlot[]> {
+  // Store location for mock data
+  if (locationName) {
+    lastSearchedLocation = locationName;
+  }
+
   // First, find nearby venues
   const venues = await findNearbyVenues(coordinates, maxDistanceKm, 10);
 
   if (venues.length === 0) {
     // Use mock data for demo
-    return getMockSlotsForDemo(date, preferredTimeStart, preferredTimeEnd);
+    return getMockSlotsForDemo(date, preferredTimeStart, preferredTimeEnd, locationName);
   }
 
   // Check availability at each venue (with some delay to respect rate limits)
@@ -260,7 +272,7 @@ export async function findAvailableGames(
 
   // If no real slots found, return mock data for demo
   if (allSlots.length === 0) {
-    return getMockSlotsForDemo(date, preferredTimeStart, preferredTimeEnd);
+    return getMockSlotsForDemo(date, preferredTimeStart, preferredTimeEnd, locationName);
   }
 
   // Sort by start time
@@ -270,9 +282,10 @@ export async function findAvailableGames(
 /**
  * Generate mock slots for demo/testing purposes
  */
-function getMockSlotsForDemo(date: string, timeStart?: string, timeEnd?: string): TimeSlot[] {
+function getMockSlotsForDemo(date: string, timeStart?: string, timeEnd?: string, location?: string): TimeSlot[] {
   const allSlots: TimeSlot[] = [];
-  for (const venue of MOCK_VENUES) {
+  const mockVenues = getMockVenues(location || lastSearchedLocation);
+  for (const venue of mockVenues) {
     const slots = generateMockSlots(venue.id, venue.name, date);
     const filtered = slots.filter((slot) => {
       const slotTime = slot.start_time.split('T')[1]?.substring(0, 5) ?? '00:00';
