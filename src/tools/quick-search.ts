@@ -380,6 +380,13 @@ export function registerQuickSearch(server: McpServer): void {
         groupByVenue: true,
         maxSlotsPerVenue: 3,
         title: `🎾 Quick Search: ${preset}`,
+        searchParams: {
+          location: searchLocation,
+          date: config.dates[0], // Use first date from preset
+          timeStart: config.timeStart,
+          timeEnd: config.timeEnd,
+          maxDistanceKm,
+        },
       });
 
       // Return with Goose MCP-UI metadata for proper rendering

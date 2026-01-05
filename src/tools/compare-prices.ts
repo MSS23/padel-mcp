@@ -8,7 +8,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { parseLocation } from '../services/geocoding.js';
 import { findAvailableGames } from '../services/playtomic.js';
-import { createPriceComparisonResource, createEmptyStateResource, createUIToolResponse } from '../utils/ui-resources.js';
+import { createPriceComparisonResource, createEmptyStateResource, createUIToolResponse, createInteractiveSearchResource, type MCPEmbeddedResource } from '../utils/ui-resources.js';
 
 export const comparePricesSchema = {
   location: z
@@ -167,6 +167,11 @@ export function registerComparePrices(server: McpServer): void {
         location,
         date,
         totalCompared: priceData.length,
+        searchParams: {
+          timeStart: time_start,
+          timeEnd: time_end,
+          maxDistanceKm: maxDistanceKm,
+        },
       });
 
       return createUIToolResponse({

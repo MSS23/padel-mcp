@@ -246,6 +246,11 @@ export function registerCheckAvailability(server: McpServer): void {
       const uiResource = createSlotCardsResource(enhancedSlots, {
         groupByVenue: false,
         title: `🎾 ${venue_name ?? venue_id} - ${date}`,
+        searchParams: {
+          date,
+          timeStart: start_time,
+          timeEnd: end_time,
+        },
       });
 
       // Return with Goose MCP-UI metadata for proper rendering

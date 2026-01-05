@@ -11,6 +11,7 @@ import { generateSearchFormHTML, generateQuickSearchHTML, generateVenueSearchFor
 import { generateWeeklyCalendarHTML, generateWeeklyListHTML } from '../ui/components/calendar-view.js';
 import { generateEmptyStateHTML, type EmptyStateParams } from '../ui/components/empty-state.js';
 import { generatePriceComparisonHTML, type PriceSlot, type VenuePrice } from '../ui/components/price-card.js';
+import { generateInteractiveSearchHTML, generateCompactSearchHTML, type InteractiveSearchParams } from '../ui/components/interactive-search.js';
 
 /**
  * MCP Embedded Resource type for UI content
@@ -34,6 +35,13 @@ export function createSlotCardsResource(
     groupByVenue?: boolean;
     maxSlotsPerVenue?: number;
     title?: string;
+    searchParams?: {
+      location?: string;
+      date?: string;
+      timeStart?: string;
+      timeEnd?: string;
+      maxDistanceKm?: number;
+    };
   }
 ): MCPEmbeddedResource {
   const htmlContent = generateSlotCardsHTML(slots, options);
@@ -188,6 +196,11 @@ export function createPriceComparisonResource(params: {
   location: string;
   date: string;
   totalCompared: number;
+  searchParams?: {
+    timeStart?: string;
+    timeEnd?: string;
+    maxDistanceKm?: number;
+  };
 }): MCPEmbeddedResource {
   const htmlContent = generatePriceComparisonHTML(params);
 
@@ -195,6 +208,38 @@ export function createPriceComparisonResource(params: {
     type: 'resource' as const,
     resource: {
       uri: `ui://padel-finder/price-comparison/${Date.now()}`,
+      mimeType: 'text/html' as const,
+      text: htmlContent,
+    },
+  };
+}
+
+/**
+ * Create an embedded resource for the interactive search panel
+ */
+export function createInteractiveSearchResource(params?: InteractiveSearchParams): MCPEmbeddedResource {
+  const htmlContent = generateInteractiveSearchHTML(params);
+
+  return {
+    type: 'resource' as const,
+    resource: {
+      uri: `ui://padel-finder/interactive-search/${Date.now()}`,
+      mimeType: 'text/html' as const,
+      text: htmlContent,
+    },
+  };
+}
+
+/**
+ * Create an embedded resource for the compact search bar
+ */
+export function createCompactSearchResource(params?: InteractiveSearchParams): MCPEmbeddedResource {
+  const htmlContent = generateCompactSearchHTML(params);
+
+  return {
+    type: 'resource' as const,
+    resource: {
+      uri: `ui://padel-finder/compact-search/${Date.now()}`,
       mimeType: 'text/html' as const,
       text: htmlContent,
     },

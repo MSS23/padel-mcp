@@ -2,9 +2,11 @@
  * Empty State Component
  *
  * Shows a helpful UI when no results are found, with suggestions and quick actions.
+ * Now includes an interactive search panel so users can modify their search.
  */
 
 import { wrapWithStyles } from '../styles.js';
+import { generateInteractiveSearchHTML } from './interactive-search.js';
 
 export interface EmptyStateParams {
   title?: string;
@@ -12,6 +14,7 @@ export interface EmptyStateParams {
   suggestions?: string[];
   searchLocation?: string;
   searchDate?: string;
+  showSearchPanel?: boolean;
 }
 
 /**
@@ -35,7 +38,8 @@ export function generateEmptyStateHTML(params: EmptyStateParams): string {
     message,
     suggestions = [],
     searchLocation,
-    searchDate
+    searchDate,
+    showSearchPanel = true
   } = params;
 
   const suggestionsHtml = suggestions.length > 0
@@ -49,36 +53,36 @@ export function generateEmptyStateHTML(params: EmptyStateParams): string {
     `
     : '';
 
-  // Quick action buttons if we have search context
-  let actionsHtml = '';
-  if (searchLocation) {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
-
-    actionsHtml = `
-      <div class="quick-actions">
-        <p class="actions-title">Quick searches:</p>
-        <div class="action-buttons">
-          <button class="btn btn-secondary" onclick="searchDifferentDate('${escapeHtml(searchLocation)}', '${tomorrowStr}')">
-            Try Tomorrow
-          </button>
-          <button class="btn btn-secondary" onclick="searchExpandedRadius('${escapeHtml(searchLocation)}', '${searchDate || tomorrowStr}')">
-            Expand Search (25km)
-          </button>
-        </div>
-      </div>
-    `;
+  // Generate interactive search panel if enabled
+  let searchPanelHtml = '';
+  if (showSearchPanel) {
+    // Extract just the inner HTML from the interactive search (without full HTML wrapper)
+    const fullSearchHtml = generateInteractiveSearchHTML({
+      location: searchLocation ?? '',
+      date: searchDate,
+      collapsed: false,
+    });
+    // Extract content between <body> tags
+    const bodyMatch = fullSearchHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    searchPanelHtml = bodyMatch ? bodyMatch[1] : '';
   }
 
   const content = `
     <div class="empty-state-card">
-      <div class="empty-icon">🎾</div>
+      <div class="empty-icon">&#x1F3BE;</div>
       <h2>${escapeHtml(title)}</h2>
       <p class="message">${escapeHtml(message)}</p>
       ${suggestionsHtml}
-      ${actionsHtml}
     </div>
+
+    ${searchPanelHtml ? `
+      <div class="search-panel-wrapper" style="margin-top: 20px;">
+        <p style="text-align: center; color: #64748b; margin-bottom: 12px; font-size: 14px;">
+          Modify your search below:
+        </p>
+        ${searchPanelHtml}
+      </div>
+    ` : ''}
 
     <style>
       .empty-state-card {
@@ -162,29 +166,13 @@ export function generateEmptyStateHTML(params: EmptyStateParams): string {
         min-width: 120px;
         max-width: 160px;
       }
+
+      .search-panel-wrapper {
+        max-width: 500px;
+        margin-left: auto;
+        margin-right: auto;
+      }
     </style>
-
-    <script>
-      function searchDifferentDate(location, date) {
-        window.parent.postMessage({
-          type: 'tool',
-          payload: {
-            toolName: 'find_available_games',
-            params: { location: location, date: date }
-          }
-        }, '*');
-      }
-
-      function searchExpandedRadius(location, date) {
-        window.parent.postMessage({
-          type: 'tool',
-          payload: {
-            toolName: 'find_available_games',
-            params: { location: location, date: date, max_distance_km: 25 }
-          }
-        }, '*');
-      }
-    </script>
   `;
 
   return wrapWithStyles(content);

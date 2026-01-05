@@ -3,10 +3,12 @@
  *
  * Generates interactive HTML cards for padel court time slots.
  * Each card shows venue, time, price, weather, and action buttons.
+ * Now includes interactive search panel for modifying searches.
  */
 
 import type { EnhancedTimeSlot } from '../../types/index.js';
 import { wrapWithStyles } from '../styles.js';
+import { generateInteractiveSearchHTML } from './interactive-search.js';
 
 /**
  * Format time from ISO string to HH:mm
@@ -111,8 +113,15 @@ export function generateSlotCardsHTML(slots: EnhancedTimeSlot[], options?: {
   groupByVenue?: boolean;
   maxSlotsPerVenue?: number;
   title?: string;
+  searchParams?: {
+    location?: string;
+    date?: string;
+    timeStart?: string;
+    timeEnd?: string;
+    maxDistanceKm?: number;
+  };
 }): string {
-  const { groupByVenue = true, maxSlotsPerVenue = 5, title } = options ?? {};
+  const { groupByVenue = true, maxSlotsPerVenue = 5, title, searchParams } = options ?? {};
 
   if (slots.length === 0) {
     return wrapWithStyles(`
@@ -124,6 +133,23 @@ export function generateSlotCardsHTML(slots: EnhancedTimeSlot[], options?: {
   }
 
   let content = '';
+
+  // Add interactive search panel at the top (collapsed by default for results)
+  if (searchParams) {
+    const searchHtml = generateInteractiveSearchHTML({
+      location: searchParams.location,
+      date: searchParams.date,
+      timeStart: searchParams.timeStart,
+      timeEnd: searchParams.timeEnd,
+      maxDistanceKm: searchParams.maxDistanceKm,
+      collapsed: true, // Collapsed when showing results
+    });
+    // Extract content between <body> tags
+    const bodyMatch = searchHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    if (bodyMatch) {
+      content += bodyMatch[1];
+    }
+  }
 
   if (title) {
     content += `<h2 style="margin-bottom: 16px;">${escapeHtml(title)}</h2>`;

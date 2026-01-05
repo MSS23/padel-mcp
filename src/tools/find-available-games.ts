@@ -319,6 +319,13 @@ export function registerFindAvailableGames(server: McpServer): void {
         groupByVenue: true,
         maxSlotsPerVenue: 5,
         title: `🎾 ${enhancedSlots.length} Available Slots - ${date}`,
+        searchParams: {
+          location,
+          date,
+          timeStart: preferred_time_start,
+          timeEnd: preferred_time_end,
+          maxDistanceKm,
+        },
       });
 
       // Return with Goose MCP-UI metadata for proper rendering

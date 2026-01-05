@@ -187,6 +187,11 @@ export function registerFindCheapest(server: McpServer): void {
         location,
         date,
         totalCompared: slots.length,
+        searchParams: {
+          timeStart: time_start,
+          timeEnd: time_end,
+          maxDistanceKm: max_distance_km ?? 15,
+        },
       });
 
       return createUIToolResponse({

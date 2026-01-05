@@ -2,9 +2,11 @@
  * Price Card Component
  *
  * Generates HTML cards for price comparison results.
+ * Now includes interactive search panel for modifying searches.
  */
 
 import { wrapWithStyles } from '../styles.js';
+import { generateInteractiveSearchHTML } from './interactive-search.js';
 
 export interface PriceSlot {
   venue: string;
@@ -44,8 +46,13 @@ export function generatePriceComparisonHTML(params: {
   location: string;
   date: string;
   totalCompared: number;
+  searchParams?: {
+    timeStart?: string;
+    timeEnd?: string;
+    maxDistanceKm?: number;
+  };
 }): string {
-  const { venuesByPrice, cheapestSlots, location, date, totalCompared } = params;
+  const { venuesByPrice, cheapestSlots, location, date, totalCompared, searchParams } = params;
 
   // Venue ranking section
   let venuesHtml = '';
@@ -79,10 +86,27 @@ export function generatePriceComparisonHTML(params: {
     `;
   }
 
+  // Generate interactive search panel (collapsed)
+  let searchPanelHtml = '';
+  const searchHtml = generateInteractiveSearchHTML({
+    location,
+    date,
+    timeStart: searchParams?.timeStart,
+    timeEnd: searchParams?.timeEnd,
+    maxDistanceKm: searchParams?.maxDistanceKm ?? 10,
+    collapsed: true,
+  });
+  const bodyMatch = searchHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+  if (bodyMatch) {
+    searchPanelHtml = bodyMatch[1];
+  }
+
   const content = `
+    ${searchPanelHtml}
+
     <div class="price-comparison">
       <div class="comparison-header">
-        <h2>💰 Price Comparison</h2>
+        <h2>&#x1F4B0; Price Comparison</h2>
         <p class="comparison-meta">Near "${escapeHtml(location)}" on ${date}</p>
         <p class="comparison-stats">${totalCompared} slots compared</p>
       </div>
