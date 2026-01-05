@@ -21,6 +21,23 @@ import { cache } from './cache.js';
 
 const PLAYTOMIC_BASE_URL = 'https://api.playtomic.io/v1';
 const USER_AGENT = 'PadelFinderMCP/1.0';
+const FETCH_TIMEOUT_MS = 5000; // 5 second timeout
+
+/**
+ * Fetch with timeout using AbortController
+ */
+async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number = FETCH_TIMEOUT_MS): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
 
 // Mock venue templates - location will be filled in dynamically
 function getMockVenues(location: string = 'your area'): Venue[] {
@@ -90,7 +107,8 @@ function toRad(deg: number): number {
 export async function findNearbyVenues(
   coordinates: Coordinates,
   radiusKm: number = 10,
-  maxResults: number = 20
+  maxResults: number = 20,
+  locationName?: string
 ): Promise<Venue[]> {
   const radiusMeters = radiusKm * 1000;
 
@@ -105,7 +123,7 @@ export async function findNearbyVenues(
   const url = `${PLAYTOMIC_BASE_URL}/tenants?${params}`;
 
   try {
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       headers: {
         'User-Agent': USER_AGENT,
         'Accept': 'application/json',
@@ -113,10 +131,16 @@ export async function findNearbyVenues(
     });
 
     if (!response.ok) {
-      throw new Error(`Playtomic API error: ${response.status} ${response.statusText}`);
+      console.warn(`Playtomic API error: ${response.status}, using mock venues`);
+      return getMockVenues(locationName || lastSearchedLocation);
     }
 
     const tenants = (await response.json()) as PlaytomicTenant[];
+
+    if (tenants.length === 0) {
+      console.log('No venues found from API, using mock venues');
+      return getMockVenues(locationName || lastSearchedLocation);
+    }
 
     return tenants.map((tenant) => {
       const venueCoords: Coordinates = {
@@ -137,10 +161,10 @@ export async function findNearbyVenues(
       };
     }).sort((a, b) => (a.distance_km ?? 0) - (b.distance_km ?? 0));
   } catch (error) {
-    if (error instanceof Error) {
-      throw new Error(`Failed to fetch venues: ${error.message}`);
-    }
-    throw error;
+    // On timeout or network error, return mock venues
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.warn(`Failed to fetch venues (${errorMsg}), using mock venues`);
+    return getMockVenues(locationName || lastSearchedLocation);
   }
 }
 
@@ -152,6 +176,11 @@ export async function checkVenueAvailability(
   date: string, // YYYY-MM-DD format
   venueName?: string
 ): Promise<TimeSlot[]> {
+  // For mock venues, return mock slots directly
+  if (venueId.startsWith('mock-')) {
+    return generateMockSlots(venueId, venueName || 'Mock Venue', date);
+  }
+
   // Playtomic requires datetime range
   const startMin = `${date}T00:00:00`;
   const startMax = `${date}T23:59:59`;
@@ -166,7 +195,7 @@ export async function checkVenueAvailability(
   const url = `${PLAYTOMIC_BASE_URL}/availability?${params}`;
 
   try {
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       headers: {
         'User-Agent': USER_AGENT,
         'Accept': 'application/json',
@@ -174,7 +203,8 @@ export async function checkVenueAvailability(
     });
 
     if (!response.ok) {
-      throw new Error(`Playtomic API error: ${response.status} ${response.statusText}`);
+      console.warn(`Playtomic availability API error: ${response.status}, using mock slots`);
+      return generateMockSlots(venueId, venueName || 'Venue', date);
     }
 
     const data = (await response.json()) as PlaytomicAvailabilityResponse;
@@ -199,10 +229,10 @@ export async function checkVenueAvailability(
       available: true,
     }));
   } catch (error) {
-    if (error instanceof Error) {
-      throw new Error(`Failed to check availability: ${error.message}`);
-    }
-    throw error;
+    // On timeout or network error, return mock slots
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.warn(`Failed to check availability (${errorMsg}), using mock slots`);
+    return generateMockSlots(venueId, venueName || 'Venue', date);
   }
 }
 
@@ -222,8 +252,8 @@ export async function findAvailableGames(
     lastSearchedLocation = locationName;
   }
 
-  // First, find nearby venues
-  const venues = await findNearbyVenues(coordinates, maxDistanceKm, 10);
+  // First, find nearby venues (will return mock venues on timeout/error)
+  const venues = await findNearbyVenues(coordinates, maxDistanceKm, 10, locationName);
 
   if (venues.length === 0) {
     // Use mock data for demo
@@ -302,6 +332,30 @@ function getMockSlotsForDemo(date: string, timeStart?: string, timeEnd?: string,
  * Get detailed information about a specific venue
  */
 export async function getVenueDetails(venueId: string): Promise<VenueDetails | null> {
+  // For mock venues, return mock details
+  if (venueId.startsWith('mock-')) {
+    const mockVenue = getMockVenues(lastSearchedLocation).find(v => v.id === venueId);
+    if (mockVenue) {
+      return {
+        id: mockVenue.id,
+        name: mockVenue.name,
+        address: mockVenue.address,
+        city: mockVenue.city,
+        coordinates: mockVenue.coordinates,
+        platform: 'playtomic',
+        playtomic_status: 'ACTIVE',
+        description: 'A great padel club with modern facilities',
+        images: [],
+        courts: [
+          { id: 'court-1', name: 'Pista 1 Indoor', type: 'indoor' },
+          { id: 'court-2', name: 'Pista 2 Outdoor', type: 'outdoor' },
+          { id: 'court-3', name: 'Pista 3 Indoor', type: 'indoor' },
+        ],
+      };
+    }
+    return null;
+  }
+
   const cacheKey = `venue:${venueId}`;
 
   return cache.getOrSet(
@@ -310,7 +364,7 @@ export async function getVenueDetails(venueId: string): Promise<VenueDetails | n
       const url = `${PLAYTOMIC_BASE_URL}/tenants/${venueId}`;
 
       try {
-        const response = await fetch(url, {
+        const response = await fetchWithTimeout(url, {
           headers: {
             'User-Agent': USER_AGENT,
             'Accept': 'application/json',
@@ -321,7 +375,8 @@ export async function getVenueDetails(venueId: string): Promise<VenueDetails | n
           if (response.status === 404) {
             return null;
           }
-          throw new Error(`Playtomic API error: ${response.status} ${response.statusText}`);
+          console.warn(`Playtomic venue details API error: ${response.status}`);
+          return null;
         }
 
         const tenant = (await response.json()) as PlaytomicTenantDetails;
@@ -353,10 +408,9 @@ export async function getVenueDetails(venueId: string): Promise<VenueDetails | n
 
         return details;
       } catch (error) {
-        if (error instanceof Error) {
-          throw new Error(`Failed to get venue details: ${error.message}`);
-        }
-        throw error;
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        console.warn(`Failed to get venue details (${errorMsg})`);
+        return null;
       }
     },
     30 * 60 * 1000 // Cache for 30 minutes
@@ -428,6 +482,17 @@ export async function checkVenueAvailabilityWithProperties(
   date: string,
   venueName?: string
 ): Promise<EnhancedTimeSlotWithProperties[]> {
+  // For mock venues, return mock slots with properties
+  if (venueId.startsWith('mock-')) {
+    const mockSlots = generateMockSlots(venueId, venueName || 'Mock Venue', date);
+    return mockSlots.map(slot => ({
+      ...slot,
+      court_type: slot.court_name.toLowerCase().includes('indoor') ? 'indoor' as const : 'outdoor' as const,
+      surface: 'artificial_grass',
+      has_lighting: true,
+    }));
+  }
+
   const startMin = `${date}T00:00:00`;
   const startMax = `${date}T23:59:59`;
 
@@ -441,7 +506,7 @@ export async function checkVenueAvailabilityWithProperties(
   const url = `${PLAYTOMIC_BASE_URL}/availability?${params}`;
 
   try {
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       headers: {
         'User-Agent': USER_AGENT,
         'Accept': 'application/json',
@@ -449,7 +514,14 @@ export async function checkVenueAvailabilityWithProperties(
     });
 
     if (!response.ok) {
-      throw new Error(`Playtomic API error: ${response.status} ${response.statusText}`);
+      console.warn(`Playtomic availability API error: ${response.status}, using mock slots`);
+      const mockSlots = generateMockSlots(venueId, venueName || 'Venue', date);
+      return mockSlots.map(slot => ({
+        ...slot,
+        court_type: slot.court_name.toLowerCase().includes('indoor') ? 'indoor' as const : 'outdoor' as const,
+        surface: 'artificial_grass',
+        has_lighting: true,
+      }));
     }
 
     const data = (await response.json()) as PlaytomicAvailabilityResponse;
@@ -484,10 +556,16 @@ export async function checkVenueAvailabilityWithProperties(
       };
     });
   } catch (error) {
-    if (error instanceof Error) {
-      throw new Error(`Failed to check availability: ${error.message}`);
-    }
-    throw error;
+    // On timeout or network error, return mock slots
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+    console.warn(`Failed to check availability with properties (${errorMsg}), using mock slots`);
+    const mockSlots = generateMockSlots(venueId, venueName || 'Venue', date);
+    return mockSlots.map(slot => ({
+      ...slot,
+      court_type: slot.court_name.toLowerCase().includes('indoor') ? 'indoor' as const : 'outdoor' as const,
+      surface: 'artificial_grass',
+      has_lighting: true,
+    }));
   }
 }
 
