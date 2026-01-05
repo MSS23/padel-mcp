@@ -1,9 +1,8 @@
 /**
- * Playtomic API Service
+ * Padel Venue Service
  *
- * Interacts with Playtomic's public API to:
- * - Find nearby padel venues
- * - Check court availability
+ * Hardcoded venues for Chiswick and Maidenhead only.
+ * No external API calls.
  */
 
 import type {
@@ -11,66 +10,89 @@ import type {
   Venue,
   VenueDetails,
   TimeSlot,
-  PlaytomicTenant,
-  PlaytomicTenantDetails,
-  PlaytomicAvailabilityResponse,
   SearchFilters,
   EnhancedTimeSlotWithProperties,
 } from '../types/index.js';
-import { cache } from './cache.js';
 
-const PLAYTOMIC_BASE_URL = 'https://api.playtomic.io/v1';
-const USER_AGENT = 'PadelFinderMCP/1.0';
-const FETCH_TIMEOUT_MS = 5000; // 5 second timeout
+// Chiswick coordinates
+const CHISWICK_COORDS: Coordinates = { latitude: 51.4927, longitude: -0.2674 };
+// Maidenhead coordinates
+const MAIDENHEAD_COORDS: Coordinates = { latitude: 51.5217, longitude: -0.7177 };
+
+// Hardcoded venues for Chiswick
+const CHISWICK_VENUES: Venue[] = [
+  {
+    id: 'chiswick-1',
+    name: 'Will To Win Chiswick',
+    address: 'Dukes Meadows, Dan Mason Drive, Chiswick',
+    city: 'London',
+    coordinates: { latitude: 51.4785, longitude: -0.2534 },
+    distance_km: 1.8,
+    platform: 'playtomic',
+    playtomic_status: 'ACTIVE',
+  },
+  {
+    id: 'chiswick-2',
+    name: 'Chiswick Padel Club',
+    address: 'Riverside Drive, Chiswick',
+    city: 'London',
+    coordinates: { latitude: 51.4850, longitude: -0.2600 },
+    distance_km: 1.2,
+    platform: 'playtomic',
+    playtomic_status: 'ACTIVE',
+  },
+];
+
+// Hardcoded venues for Maidenhead
+const MAIDENHEAD_VENUES: Venue[] = [
+  {
+    id: 'maidenhead-1',
+    name: 'Maidenhead Padel Club',
+    address: 'Braywick Sports Ground, Braywick Road, Maidenhead',
+    city: 'Maidenhead',
+    coordinates: { latitude: 51.5180, longitude: -0.7250 },
+    distance_km: 0.8,
+    platform: 'playtomic',
+    playtomic_status: 'ACTIVE',
+  },
+  {
+    id: 'maidenhead-2',
+    name: 'Thames Valley Padel',
+    address: 'Stafferton Way, Maidenhead',
+    city: 'Maidenhead',
+    coordinates: { latitude: 51.5150, longitude: -0.7100 },
+    distance_km: 1.5,
+    platform: 'playtomic',
+    playtomic_status: 'ACTIVE',
+  },
+];
+
+// Store the last searched location
+let lastSearchedLocation: string = 'Chiswick';
 
 /**
- * Fetch with timeout using AbortController
+ * Generate time slots for a venue on a given date
  */
-async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs: number = FETCH_TIMEOUT_MS): Promise<Response> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(url, { ...options, signal: controller.signal });
-    clearTimeout(timeoutId);
-    return response;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    throw error;
-  }
-}
-
-// Mock venue templates - location will be filled in dynamically
-function getMockVenues(location: string = 'your area'): Venue[] {
-  const cityName = location.split(',')[0].trim() || 'your area';
-  return [
-    { id: 'mock-1', name: `${cityName} Padel Club`, address: `123 Main Street, ${cityName}`, city: cityName, coordinates: { latitude: 51.5074, longitude: -0.1278 }, distance_km: 1.2, platform: 'playtomic', playtomic_status: 'ACTIVE' },
-    { id: 'mock-2', name: `${cityName} Indoor Padel`, address: `456 Sports Avenue, ${cityName}`, city: cityName, coordinates: { latitude: 51.5100, longitude: -0.1300 }, distance_km: 2.5, platform: 'playtomic', playtomic_status: 'ACTIVE' },
-    { id: 'mock-3', name: `${cityName} Sports Centre`, address: `789 Athletic Way, ${cityName}`, city: cityName, coordinates: { latitude: 51.5200, longitude: -0.1400 }, distance_km: 4.1, platform: 'playtomic', playtomic_status: 'ACTIVE' },
-  ];
-}
-
-// Store the last searched location for mock data
-let lastSearchedLocation: string = 'London';
-
-function generateMockSlots(venueId: string, venueName: string, date: string): TimeSlot[] {
+function generateSlots(venueId: string, venueName: string, date: string): TimeSlot[] {
   const slots: TimeSlot[] = [];
   const hours = [9, 10, 11, 14, 15, 17, 18, 19, 20, 21];
-  const courts = ['Pista 1 Indoor', 'Pista 2 Outdoor', 'Pista 3 Indoor'];
-  const prices = [24, 28, 32, 36];
+  const courts = ['Court 1 Indoor', 'Court 2 Indoor', 'Court 3 Outdoor'];
 
   for (const hour of hours) {
-    const courtIndex = Math.floor(Math.random() * courts.length);
-    const priceIndex = hour >= 18 ? 2 + Math.floor(Math.random() * 2) : Math.floor(Math.random() * 2);
+    const courtIndex = hour % courts.length;
+    // Peak hours (18-21) are more expensive
+    const price = hour >= 18 ? 36 : 28;
+
     slots.push({
       venue_id: venueId,
       venue_name: venueName,
       court_name: courts[courtIndex],
-      court_id: `court-${courtIndex + 1}`,
+      court_id: `${venueId}-court-${courtIndex + 1}`,
       start_time: `${date}T${hour.toString().padStart(2, '0')}:00:00`,
       end_time: `${date}T${(hour + 1).toString().padStart(2, '0')}:30:00`,
       duration_minutes: 90,
-      price: prices[priceIndex],
-      currency: '€',
+      price: price,
+      currency: '£',
       available: true,
     });
   }
@@ -80,11 +102,8 @@ function generateMockSlots(venueId: string, venueName: string, date: string): Ti
 /**
  * Calculate distance between two coordinates using Haversine formula
  */
-function calculateDistance(
-  coord1: Coordinates,
-  coord2: Coordinates
-): number {
-  const R = 6371; // Earth's radius in km
+function calculateDistance(coord1: Coordinates, coord2: Coordinates): number {
+  const R = 6371;
   const dLat = toRad(coord2.latitude - coord1.latitude);
   const dLon = toRad(coord2.longitude - coord1.longitude);
   const lat1 = toRad(coord1.latitude);
@@ -102,70 +121,53 @@ function toRad(deg: number): number {
 }
 
 /**
- * Find nearby padel venues using Playtomic API
+ * Determine which location is closer to the given coordinates
+ */
+function getClosestLocation(coordinates: Coordinates): 'chiswick' | 'maidenhead' {
+  const distToChiswick = calculateDistance(coordinates, CHISWICK_COORDS);
+  const distToMaidenhead = calculateDistance(coordinates, MAIDENHEAD_COORDS);
+  return distToChiswick <= distToMaidenhead ? 'chiswick' : 'maidenhead';
+}
+
+/**
+ * Find nearby padel venues (hardcoded for Chiswick/Maidenhead)
  */
 export async function findNearbyVenues(
   coordinates: Coordinates,
-  radiusKm: number = 10,
-  maxResults: number = 20,
+  _radiusKm: number = 10,
+  _maxResults: number = 20,
   locationName?: string
 ): Promise<Venue[]> {
-  const radiusMeters = radiusKm * 1000;
-
-  const params = new URLSearchParams({
-    sport_id: 'PADEL',
-    coordinate: `${coordinates.latitude},${coordinates.longitude}`,
-    radius: radiusMeters.toString(),
-    playtomic_status: 'ACTIVE',
-    size: maxResults.toString(),
-  });
-
-  const url = `${PLAYTOMIC_BASE_URL}/tenants?${params}`;
-
-  try {
-    const response = await fetchWithTimeout(url, {
-      headers: {
-        'User-Agent': USER_AGENT,
-        'Accept': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      console.warn(`Playtomic API error: ${response.status}, using mock venues`);
-      return getMockVenues(locationName || lastSearchedLocation);
-    }
-
-    const tenants = (await response.json()) as PlaytomicTenant[];
-
-    if (tenants.length === 0) {
-      console.log('No venues found from API, using mock venues');
-      return getMockVenues(locationName || lastSearchedLocation);
-    }
-
-    return tenants.map((tenant) => {
-      const venueCoords: Coordinates = {
-        latitude: tenant.address.coordinate.lat,
-        longitude: tenant.address.coordinate.lon,
-      };
-
-      return {
-        id: tenant.tenant_id,
-        name: tenant.tenant_name,
-        address: tenant.address.street,
-        city: tenant.address.city,
-        coordinates: venueCoords,
-        distance_km: Math.round(calculateDistance(coordinates, venueCoords) * 10) / 10,
-        platform: 'playtomic' as const,
-        playtomic_status: tenant.playtomic_status,
-        image_url: tenant.images?.[0]?.url,
-      };
-    }).sort((a, b) => (a.distance_km ?? 0) - (b.distance_km ?? 0));
-  } catch (error) {
-    // On timeout or network error, return mock venues
-    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-    console.warn(`Failed to fetch venues (${errorMsg}), using mock venues`);
-    return getMockVenues(locationName || lastSearchedLocation);
+  // Store location for later use
+  if (locationName) {
+    lastSearchedLocation = locationName;
   }
+
+  // Check which location to return based on coordinates or location name
+  const lower = (locationName || '').toLowerCase();
+
+  if (lower.includes('maidenhead')) {
+    return MAIDENHEAD_VENUES.map(v => ({
+      ...v,
+      distance_km: Math.round(calculateDistance(coordinates, v.coordinates) * 10) / 10,
+    }));
+  }
+
+  if (lower.includes('chiswick')) {
+    return CHISWICK_VENUES.map(v => ({
+      ...v,
+      distance_km: Math.round(calculateDistance(coordinates, v.coordinates) * 10) / 10,
+    }));
+  }
+
+  // Default: return venues for closest location
+  const closest = getClosestLocation(coordinates);
+  const venues = closest === 'chiswick' ? CHISWICK_VENUES : MAIDENHEAD_VENUES;
+
+  return venues.map(v => ({
+    ...v,
+    distance_km: Math.round(calculateDistance(coordinates, v.coordinates) * 10) / 10,
+  }));
 }
 
 /**
@@ -173,158 +175,56 @@ export async function findNearbyVenues(
  */
 export async function checkVenueAvailability(
   venueId: string,
-  date: string, // YYYY-MM-DD format
+  date: string,
   venueName?: string
 ): Promise<TimeSlot[]> {
-  // For mock venues, return mock slots directly
-  if (venueId.startsWith('mock-')) {
-    return generateMockSlots(venueId, venueName || 'Mock Venue', date);
-  }
+  // Find venue name if not provided
+  const allVenues = [...CHISWICK_VENUES, ...MAIDENHEAD_VENUES];
+  const venue = allVenues.find(v => v.id === venueId);
+  const name = venueName || venue?.name || 'Padel Venue';
 
-  // Playtomic requires datetime range
-  const startMin = `${date}T00:00:00`;
-  const startMax = `${date}T23:59:59`;
-
-  const params = new URLSearchParams({
-    sport_id: 'PADEL',
-    tenant_id: venueId,
-    start_min: startMin,
-    start_max: startMax,
-  });
-
-  const url = `${PLAYTOMIC_BASE_URL}/availability?${params}`;
-
-  try {
-    const response = await fetchWithTimeout(url, {
-      headers: {
-        'User-Agent': USER_AGENT,
-        'Accept': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      console.warn(`Playtomic availability API error: ${response.status}, using mock slots`);
-      return generateMockSlots(venueId, venueName || 'Venue', date);
-    }
-
-    const data = (await response.json()) as PlaytomicAvailabilityResponse;
-
-    // Create a map of resource IDs to names
-    const resourceMap = new Map<string, string>();
-    for (const resource of data.resources || []) {
-      resourceMap.set(resource.resource_id, resource.name);
-    }
-
-    // Convert slots to our format
-    return (data.slots || []).map((slot) => ({
-      venue_id: venueId,
-      venue_name: venueName ?? venueId,
-      court_name: resourceMap.get(slot.resource_id) ?? 'Court',
-      court_id: slot.resource_id,
-      start_time: slot.start_time,
-      end_time: slot.end_time,
-      duration_minutes: slot.duration,
-      price: slot.price,
-      currency: slot.currency || 'EUR',
-      available: true,
-    }));
-  } catch (error) {
-    // On timeout or network error, return mock slots
-    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-    console.warn(`Failed to check availability (${errorMsg}), using mock slots`);
-    return generateMockSlots(venueId, venueName || 'Venue', date);
-  }
+  return generateSlots(venueId, name, date);
 }
 
 /**
- * Find available games across multiple venues
+ * Find available games across venues
  */
 export async function findAvailableGames(
   coordinates: Coordinates,
   date: string,
-  preferredTimeStart?: string, // HH:mm format
-  preferredTimeEnd?: string, // HH:mm format
+  preferredTimeStart?: string,
+  preferredTimeEnd?: string,
   maxDistanceKm: number = 10,
-  locationName?: string // For mock data fallback
+  locationName?: string
 ): Promise<TimeSlot[]> {
-  // Store location for mock data
   if (locationName) {
     lastSearchedLocation = locationName;
   }
 
-  // First, find nearby venues (will return mock venues on timeout/error)
   const venues = await findNearbyVenues(coordinates, maxDistanceKm, 10, locationName);
-
-  if (venues.length === 0) {
-    // Use mock data for demo
-    return getMockSlotsForDemo(date, preferredTimeStart, preferredTimeEnd, locationName);
-  }
-
-  // Check availability at each venue (with some delay to respect rate limits)
   const allSlots: TimeSlot[] = [];
 
   for (const venue of venues) {
-    try {
-      const slots = await checkVenueAvailability(venue.id, date, venue.name);
+    const slots = await checkVenueAvailability(venue.id, date, venue.name);
 
-      // Filter by preferred time if specified
-      const filteredSlots = slots.filter((slot) => {
-        if (!preferredTimeStart && !preferredTimeEnd) {
-          return true;
-        }
+    const filteredSlots = slots.filter((slot) => {
+      if (!preferredTimeStart && !preferredTimeEnd) return true;
 
-        const slotTime = slot.start_time.split('T')[1]?.substring(0, 5) ?? '00:00';
-
-        if (preferredTimeStart && slotTime < preferredTimeStart) {
-          return false;
-        }
-        if (preferredTimeEnd && slotTime > preferredTimeEnd) {
-          return false;
-        }
-        return true;
-      });
-
-      // Add distance info to slots
-      const slotsWithDistance = filteredSlots.map((slot) => ({
-        ...slot,
-        distance_km: venue.distance_km,
-      }));
-
-      allSlots.push(...slotsWithDistance);
-
-      // Small delay between requests to be respectful
-      await new Promise((resolve) => setTimeout(resolve, 200));
-    } catch (error) {
-      // Log error but continue with other venues
-      console.error(`Error checking venue ${venue.name}: ${error}`);
-    }
-  }
-
-  // If no real slots found, return mock data for demo
-  if (allSlots.length === 0) {
-    return getMockSlotsForDemo(date, preferredTimeStart, preferredTimeEnd, locationName);
-  }
-
-  // Sort by start time
-  return allSlots.sort((a, b) => a.start_time.localeCompare(b.start_time));
-}
-
-/**
- * Generate mock slots for demo/testing purposes
- */
-function getMockSlotsForDemo(date: string, timeStart?: string, timeEnd?: string, location?: string): TimeSlot[] {
-  const allSlots: TimeSlot[] = [];
-  const mockVenues = getMockVenues(location || lastSearchedLocation);
-  for (const venue of mockVenues) {
-    const slots = generateMockSlots(venue.id, venue.name, date);
-    const filtered = slots.filter((slot) => {
       const slotTime = slot.start_time.split('T')[1]?.substring(0, 5) ?? '00:00';
-      if (timeStart && slotTime < timeStart) return false;
-      if (timeEnd && slotTime > timeEnd) return false;
+
+      if (preferredTimeStart && slotTime < preferredTimeStart) return false;
+      if (preferredTimeEnd && slotTime > preferredTimeEnd) return false;
       return true;
-    }).map((slot) => ({ ...slot, distance_km: venue.distance_km }));
-    allSlots.push(...filtered);
+    });
+
+    const slotsWithDistance = filteredSlots.map((slot) => ({
+      ...slot,
+      distance_km: venue.distance_km,
+    }));
+
+    allSlots.push(...slotsWithDistance);
   }
+
   return allSlots.sort((a, b) => a.start_time.localeCompare(b.start_time));
 }
 
@@ -332,146 +232,27 @@ function getMockSlotsForDemo(date: string, timeStart?: string, timeEnd?: string,
  * Get detailed information about a specific venue
  */
 export async function getVenueDetails(venueId: string): Promise<VenueDetails | null> {
-  // For mock venues, return mock details
-  if (venueId.startsWith('mock-')) {
-    const mockVenue = getMockVenues(lastSearchedLocation).find(v => v.id === venueId);
-    if (mockVenue) {
-      return {
-        id: mockVenue.id,
-        name: mockVenue.name,
-        address: mockVenue.address,
-        city: mockVenue.city,
-        coordinates: mockVenue.coordinates,
-        platform: 'playtomic',
-        playtomic_status: 'ACTIVE',
-        description: 'A great padel club with modern facilities',
-        images: [],
-        courts: [
-          { id: 'court-1', name: 'Pista 1 Indoor', type: 'indoor' },
-          { id: 'court-2', name: 'Pista 2 Outdoor', type: 'outdoor' },
-          { id: 'court-3', name: 'Pista 3 Indoor', type: 'indoor' },
-        ],
-      };
-    }
-    return null;
-  }
+  const allVenues = [...CHISWICK_VENUES, ...MAIDENHEAD_VENUES];
+  const venue = allVenues.find(v => v.id === venueId);
 
-  const cacheKey = `venue:${venueId}`;
+  if (!venue) return null;
 
-  return cache.getOrSet(
-    cacheKey,
-    async () => {
-      const url = `${PLAYTOMIC_BASE_URL}/tenants/${venueId}`;
-
-      try {
-        const response = await fetchWithTimeout(url, {
-          headers: {
-            'User-Agent': USER_AGENT,
-            'Accept': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          if (response.status === 404) {
-            return null;
-          }
-          console.warn(`Playtomic venue details API error: ${response.status}`);
-          return null;
-        }
-
-        const tenant = (await response.json()) as PlaytomicTenantDetails;
-
-        const details: VenueDetails = {
-          id: tenant.tenant_id,
-          name: tenant.tenant_name,
-          address: tenant.address.street,
-          city: tenant.address.city,
-          coordinates: {
-            latitude: tenant.address.coordinate.lat,
-            longitude: tenant.address.coordinate.lon,
-          },
-          platform: 'playtomic',
-          playtomic_status: tenant.playtomic_status,
-          description: tenant.description,
-          phone: tenant.phone,
-          email: tenant.email,
-          website: tenant.website,
-          images: tenant.images?.map((img) => img.url) ?? [],
-          amenities: tenant.facilities,
-          courts: tenant.resources?.map((r) => ({
-            id: r.resource_id,
-            name: r.name,
-            type: r.properties?.court_type,
-            surface: r.properties?.surface,
-          })),
-        };
-
-        return details;
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-        console.warn(`Failed to get venue details (${errorMsg})`);
-        return null;
-      }
-    },
-    30 * 60 * 1000 // Cache for 30 minutes
-  );
-}
-
-/**
- * Parse court name to determine if indoor/outdoor
- */
-function parseCourtType(courtName: string, properties?: { court_type?: string }): 'indoor' | 'outdoor' | undefined {
-  // Check explicit property first
-  if (properties?.court_type) {
-    const type = properties.court_type.toLowerCase();
-    if (type.includes('indoor') || type.includes('cubierta') || type.includes('covered')) {
-      return 'indoor';
-    }
-    if (type.includes('outdoor') || type.includes('exterior') || type.includes('descubierta')) {
-      return 'outdoor';
-    }
-  }
-
-  // Parse from court name
-  const name = courtName.toLowerCase();
-  if (name.includes('indoor') || name.includes('cubierta') || name.includes('covered') || name.includes('interior')) {
-    return 'indoor';
-  }
-  if (name.includes('outdoor') || name.includes('exterior') || name.includes('descubierta') || name.includes('open')) {
-    return 'outdoor';
-  }
-
-  return undefined;
-}
-
-/**
- * Parse surface type from properties or name
- */
-function parseSurfaceType(courtName: string, properties?: { surface?: string }): string | undefined {
-  if (properties?.surface) {
-    return properties.surface;
-  }
-
-  const name = courtName.toLowerCase();
-  if (name.includes('cesped') || name.includes('grass') || name.includes('hierba')) {
-    return 'artificial_grass';
-  }
-  if (name.includes('cement') || name.includes('hormigon') || name.includes('concrete')) {
-    return 'cement';
-  }
-  if (name.includes('clay') || name.includes('tierra') || name.includes('arcilla')) {
-    return 'clay';
-  }
-
-  return undefined;
-}
-
-/**
- * Check if court has lighting (usually available for evening slots)
- */
-function hasLighting(courtName: string): boolean {
-  const name = courtName.toLowerCase();
-  return name.includes('luz') || name.includes('light') || name.includes('iluminación');
+  return {
+    id: venue.id,
+    name: venue.name,
+    address: venue.address,
+    city: venue.city,
+    coordinates: venue.coordinates,
+    platform: 'playtomic',
+    playtomic_status: 'ACTIVE',
+    description: `Welcome to ${venue.name}! A modern padel facility with excellent courts and amenities.`,
+    images: [],
+    courts: [
+      { id: `${venue.id}-court-1`, name: 'Court 1 Indoor', type: 'indoor' },
+      { id: `${venue.id}-court-2`, name: 'Court 2 Indoor', type: 'indoor' },
+      { id: `${venue.id}-court-3`, name: 'Court 3 Outdoor', type: 'outdoor' },
+    ],
+  };
 }
 
 /**
@@ -482,91 +263,14 @@ export async function checkVenueAvailabilityWithProperties(
   date: string,
   venueName?: string
 ): Promise<EnhancedTimeSlotWithProperties[]> {
-  // For mock venues, return mock slots with properties
-  if (venueId.startsWith('mock-')) {
-    const mockSlots = generateMockSlots(venueId, venueName || 'Mock Venue', date);
-    return mockSlots.map(slot => ({
-      ...slot,
-      court_type: slot.court_name.toLowerCase().includes('indoor') ? 'indoor' as const : 'outdoor' as const,
-      surface: 'artificial_grass',
-      has_lighting: true,
-    }));
-  }
+  const slots = await checkVenueAvailability(venueId, date, venueName);
 
-  const startMin = `${date}T00:00:00`;
-  const startMax = `${date}T23:59:59`;
-
-  const params = new URLSearchParams({
-    sport_id: 'PADEL',
-    tenant_id: venueId,
-    start_min: startMin,
-    start_max: startMax,
-  });
-
-  const url = `${PLAYTOMIC_BASE_URL}/availability?${params}`;
-
-  try {
-    const response = await fetchWithTimeout(url, {
-      headers: {
-        'User-Agent': USER_AGENT,
-        'Accept': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      console.warn(`Playtomic availability API error: ${response.status}, using mock slots`);
-      const mockSlots = generateMockSlots(venueId, venueName || 'Venue', date);
-      return mockSlots.map(slot => ({
-        ...slot,
-        court_type: slot.court_name.toLowerCase().includes('indoor') ? 'indoor' as const : 'outdoor' as const,
-        surface: 'artificial_grass',
-        has_lighting: true,
-      }));
-    }
-
-    const data = (await response.json()) as PlaytomicAvailabilityResponse;
-
-    // Create a map of resource IDs to full resource info
-    const resourceMap = new Map<string, { name: string; properties?: { court_type?: string; surface?: string } }>();
-    for (const resource of data.resources || []) {
-      resourceMap.set(resource.resource_id, {
-        name: resource.name,
-        properties: resource.properties,
-      });
-    }
-
-    return (data.slots || []).map((slot) => {
-      const resource = resourceMap.get(slot.resource_id);
-      const courtName = resource?.name ?? 'Court';
-
-      return {
-        venue_id: venueId,
-        venue_name: venueName ?? venueId,
-        court_name: courtName,
-        court_id: slot.resource_id,
-        start_time: slot.start_time,
-        end_time: slot.end_time,
-        duration_minutes: slot.duration,
-        price: slot.price,
-        currency: slot.currency || 'EUR',
-        available: true,
-        court_type: parseCourtType(courtName, resource?.properties),
-        surface: parseSurfaceType(courtName, resource?.properties),
-        has_lighting: hasLighting(courtName),
-      };
-    });
-  } catch (error) {
-    // On timeout or network error, return mock slots
-    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-    console.warn(`Failed to check availability with properties (${errorMsg}), using mock slots`);
-    const mockSlots = generateMockSlots(venueId, venueName || 'Venue', date);
-    return mockSlots.map(slot => ({
-      ...slot,
-      court_type: slot.court_name.toLowerCase().includes('indoor') ? 'indoor' as const : 'outdoor' as const,
-      surface: 'artificial_grass',
-      has_lighting: true,
-    }));
-  }
+  return slots.map(slot => ({
+    ...slot,
+    court_type: slot.court_name.toLowerCase().includes('indoor') ? 'indoor' as const : 'outdoor' as const,
+    surface: 'artificial_grass',
+    has_lighting: true,
+  }));
 }
 
 /**
@@ -593,54 +297,33 @@ export async function findAvailableGamesFiltered(
     sortBy = 'time',
   } = options;
 
-  // First, find nearby venues
   const venues = await findNearbyVenues(coordinates, maxDistanceKm, 10);
-
-  if (venues.length === 0) {
-    return [];
-  }
-
   const allSlots: (TimeSlot & { distance_km?: number })[] = [];
 
   for (const venue of venues) {
-    try {
-      const slots = await checkVenueAvailability(venue.id, date, venue.name);
+    const slots = await checkVenueAvailability(venue.id, date, venue.name);
 
-      const filteredSlots = slots.filter((slot) => {
-        // Time filter
-        if (preferredTimeStart || preferredTimeEnd) {
-          const slotTime = slot.start_time.split('T')[1]?.substring(0, 5) ?? '00:00';
-          if (preferredTimeStart && slotTime < preferredTimeStart) return false;
-          if (preferredTimeEnd && slotTime > preferredTimeEnd) return false;
-        }
+    const filteredSlots = slots.filter((slot) => {
+      if (preferredTimeStart || preferredTimeEnd) {
+        const slotTime = slot.start_time.split('T')[1]?.substring(0, 5) ?? '00:00';
+        if (preferredTimeStart && slotTime < preferredTimeStart) return false;
+        if (preferredTimeEnd && slotTime > preferredTimeEnd) return false;
+      }
 
-        // Duration filter
-        if (durationMinutes && slot.duration_minutes !== durationMinutes) {
-          return false;
-        }
+      if (durationMinutes && slot.duration_minutes !== durationMinutes) return false;
+      if (maxPrice && slot.price > maxPrice) return false;
 
-        // Price filter
-        if (maxPrice && slot.price > maxPrice) {
-          return false;
-        }
+      return true;
+    });
 
-        return true;
-      });
+    const slotsWithDistance = filteredSlots.map((slot) => ({
+      ...slot,
+      distance_km: venue.distance_km,
+    }));
 
-      const slotsWithDistance = filteredSlots.map((slot) => ({
-        ...slot,
-        distance_km: venue.distance_km,
-      }));
-
-      allSlots.push(...slotsWithDistance);
-
-      await new Promise((resolve) => setTimeout(resolve, 200));
-    } catch (error) {
-      console.error(`Error checking venue ${venue.name}: ${error}`);
-    }
+    allSlots.push(...slotsWithDistance);
   }
 
-  // Sort based on preference
   switch (sortBy) {
     case 'price':
       return allSlots.sort((a, b) => a.price - b.price);
@@ -675,71 +358,41 @@ export async function findAvailableGamesWithFilters(
   } = options;
 
   const venues = await findNearbyVenues(coordinates, maxDistanceKm, 10);
-
-  if (venues.length === 0) {
-    return [];
-  }
-
   const allSlots: (EnhancedTimeSlotWithProperties & { distance_km?: number })[] = [];
 
   for (const venue of venues) {
-    try {
-      const slots = await checkVenueAvailabilityWithProperties(venue.id, date, venue.name);
+    const slots = await checkVenueAvailabilityWithProperties(venue.id, date, venue.name);
 
-      const filteredSlots = slots.filter((slot) => {
-        // Time filter
-        if (preferredTimeStart || preferredTimeEnd) {
-          const slotTime = slot.start_time.split('T')[1]?.substring(0, 5) ?? '00:00';
-          if (preferredTimeStart && slotTime < preferredTimeStart) return false;
-          if (preferredTimeEnd && slotTime > preferredTimeEnd) return false;
-        }
+    const filteredSlots = slots.filter((slot) => {
+      if (preferredTimeStart || preferredTimeEnd) {
+        const slotTime = slot.start_time.split('T')[1]?.substring(0, 5) ?? '00:00';
+        if (preferredTimeStart && slotTime < preferredTimeStart) return false;
+        if (preferredTimeEnd && slotTime > preferredTimeEnd) return false;
+      }
 
-        // Court type filter
-        if (filters.court_type && filters.court_type !== 'any') {
-          if (slot.court_type && slot.court_type !== filters.court_type) {
-            return false;
-          }
-        }
+      if (filters.court_type && filters.court_type !== 'any') {
+        if (slot.court_type && slot.court_type !== filters.court_type) return false;
+      }
 
-        // Surface filter
-        if (filters.surface && filters.surface !== 'any') {
-          if (slot.surface && slot.surface !== filters.surface) {
-            return false;
-          }
-        }
+      if (filters.surface && filters.surface !== 'any') {
+        if (slot.surface && slot.surface !== filters.surface) return false;
+      }
 
-        // Duration filter
-        if (filters.min_duration_minutes && slot.duration_minutes < filters.min_duration_minutes) {
-          return false;
-        }
+      if (filters.min_duration_minutes && slot.duration_minutes < filters.min_duration_minutes) return false;
+      if (filters.max_price && slot.price > filters.max_price) return false;
+      if (filters.has_lighting && !slot.has_lighting) return false;
 
-        // Price filter
-        if (filters.max_price && slot.price > filters.max_price) {
-          return false;
-        }
+      return true;
+    });
 
-        // Lighting filter
-        if (filters.has_lighting && !slot.has_lighting) {
-          return false;
-        }
+    const slotsWithDistance = filteredSlots.map((slot) => ({
+      ...slot,
+      distance_km: venue.distance_km,
+    }));
 
-        return true;
-      });
-
-      const slotsWithDistance = filteredSlots.map((slot) => ({
-        ...slot,
-        distance_km: venue.distance_km,
-      }));
-
-      allSlots.push(...slotsWithDistance);
-
-      await new Promise((resolve) => setTimeout(resolve, 200));
-    } catch (error) {
-      console.error(`Error checking venue ${venue.name}: ${error}`);
-    }
+    allSlots.push(...slotsWithDistance);
   }
 
-  // Sort based on preference
   switch (sortBy) {
     case 'price':
       return allSlots.sort((a, b) => a.price - b.price);
