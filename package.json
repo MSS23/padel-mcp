@@ -11,7 +11,7 @@
   "scripts": {
     "build": "npm run build:widgets && npm run build:server",
     "build:widgets": "vite build --config vite.widgets.config.ts",
-    "build:server": "tsc",
+    "build:server": "tsc -p tsconfig.server.json",
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
     "start:stdio": "node dist/index.js",
