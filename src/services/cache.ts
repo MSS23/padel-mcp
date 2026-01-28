@@ -1,7 +1,8 @@
 /**
  * Cache Service
  *
- * Simple TTL-based in-memory cache to reduce API calls and respect rate limits.
+ * TTL-based in-memory cache with optimized TTLs for different data types.
+ * Reduces API calls and respects rate limits.
  */
 
 interface CacheEntry<T> {
@@ -11,7 +12,15 @@ interface CacheEntry<T> {
 
 class CacheService {
   private cache = new Map<string, CacheEntry<unknown>>();
-  private defaultTTL = 5 * 60 * 1000; // 5 minutes default
+  
+  // Default TTLs (in milliseconds)
+  private readonly TTL_AUTH_TOKEN = 55 * 60 * 1000; // Until expiry - 5 minutes
+  private readonly TTL_VENUE_METADATA = 24 * 60 * 60 * 1000; // 24 hours
+  private readonly TTL_AVAILABILITY = 5 * 60 * 1000; // 5 minutes
+  private readonly TTL_GEOCODING = 7 * 24 * 60 * 60 * 1000; // 7 days
+  private readonly TTL_GEOGRAPHIC_SEARCH = 60 * 60 * 1000; // 1 hour
+  
+  private defaultTTL = this.TTL_AVAILABILITY; // 5 minutes default
 
   /**
    * Get a cached value
@@ -104,7 +113,24 @@ class CacheService {
   static venueDetailsKey(venueId: string): string {
     return `venue:${venueId}`;
   }
+
+  /**
+   * Generate a cache key for geocoding
+   */
+  static geocodingKey(address: string): string {
+    return `geocoding:address:${address.toLowerCase().trim()}`;
+  }
+
+  /**
+   * Generate a cache key for reverse geocoding
+   */
+  static reverseGeocodingKey(coords: Coordinates): string {
+    return `geocoding:reverse:${coords.latitude.toFixed(4)},${coords.longitude.toFixed(4)}`;
+  }
 }
+
+// Import Coordinates type for convenience
+import type { Coordinates } from '../types/index.js';
 
 // Export singleton instance
 export const cache = new CacheService();

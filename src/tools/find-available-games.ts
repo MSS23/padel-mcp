@@ -13,6 +13,8 @@ import { getWeatherForSlot, formatWeatherLine, formatPlayabilityStatus } from '.
 import { generateSlotCalendarLink, formatCalendarLinkMarkdown } from '../utils/calendar.js';
 import { generateSlotBookingUrl, formatBookingLinkMarkdown } from '../utils/booking.js';
 import { createSlotCardsResource, createEmptyStateResource, createUIToolResponse } from '../utils/ui-resources.js';
+import { getUIAdapter, generateWidgetSessionId, detectClientType } from '../utils/ui-adapter.js';
+import { determineDisplayMode } from '../widget-renderer/bundler.js';
 import type { EnhancedTimeSlot, Coordinates } from '../types/index.js';
 
 export const findAvailableGamesSchema = {
@@ -315,26 +317,59 @@ export function registerFindAvailableGames(server: McpServer): void {
         total_found: enhancedSlots.length,
       };
 
-      // Create interactive UI resource for chat clients
-      const uiResource = createSlotCardsResource(enhancedSlots, {
+      // Detect client type and get appropriate UI adapter
+      const clientType = detectClientType();
+      const uiAdapter = getUIAdapter(clientType);
+      const widgetSessionId = generateWidgetSessionId('find-games');
+
+      // Create UI resource using adapter (supports both Goose and ChatGPT)
+      const uiResource = await uiAdapter.createSlotCardsUI(enhancedSlots, {
         groupByVenue: true,
         maxSlotsPerVenue: 5,
         title: `🎾 ${enhancedSlots.length} Available Slots - ${date}`,
-        searchParams: {
-          location,
-          date,
-          timeStart: preferred_time_start,
-          timeEnd: preferred_time_end,
-          maxDistanceKm,
-        },
+        // widgetSessionId, // TODO: Add when widgets are implemented
       });
 
-      // Return with Goose MCP-UI metadata for proper rendering
-      return createUIToolResponse({
-        textContent: summary + '\n```json\n' + JSON.stringify(response, null, 2) + '\n```',
-        uiResource,
-        uiName: 'Available Padel Courts',
-      });
+      // Determine display mode for ChatGPT
+      const displayMode = determineDisplayMode(enhancedSlots, 'results');
+
+      // Build response with backward compatibility
+      const toolResponse: any = {
+        content: [
+          {
+            type: 'text' as const,
+            text: summary + '\n```json\n' + JSON.stringify(response, null, 2) + '\n```',
+          },
+          uiResource,
+        ],
+      };
+
+      // Add ChatGPT Apps metadata if using ChatGPT adapter
+      if (clientType === 'chatgpt' || clientType === 'auto') {
+        toolResponse._meta = {
+          'openai/outputTemplate': uiResource.resource.uri,
+          'openai/toolInvocation/invoking': 'Searching for padel courts...',
+          'openai/toolInvocation/invoked': `Found ${enhancedSlots.length} available slots`,
+          widgetSessionId,
+          displayMode,
+        };
+      }
+
+      // Add Goose MCP-UI metadata for backward compatibility
+      if (uiResource.resource.mimeType === 'text/html') {
+        toolResponse._meta = {
+          ...toolResponse._meta,
+          goose: {
+            toolUI: {
+              displayType: displayMode === 'fullscreen' ? 'sidecar' : 'inline',
+              name: 'Available Padel Courts',
+              renderer: 'mcp-ui',
+            },
+          },
+        };
+      }
+
+      return toolResponse;
     }
   );
 }
