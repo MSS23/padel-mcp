@@ -17,6 +17,8 @@ import { registerWeeklyAvailability } from './weekly-availability.js';
 import { registerFindCheapest } from './find-cheapest.js';
 import { registerPeakHours } from './peak-hours.js';
 import { registerBookCourt } from './book-court.js';
+import { registerTestHelloWorld } from './test-hello-world.js';
+import { registerTestSlotCards } from './test-slot-cards.js';
 
 /**
  * Register all MCP tools with the server
@@ -39,6 +41,10 @@ export function registerTools(server: McpServer): void {
   
   // Booking tools
   registerBookCourt(server);
+  
+  // Test tools
+  registerTestHelloWorld(server);
+  registerTestSlotCards(server);
 }
 
 // Re-export schemas for documentation

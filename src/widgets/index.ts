@@ -11,3 +11,4 @@ export { PriceComparisonWidget } from './PriceComparison/index.js';
 export { CheckoutWizardWidget } from './CheckoutWizard/index.js';
 export { BookingConfirmationWidget } from './BookingConfirmation/index.js';
 export { FavoriteConfirmationWidget } from './FavoriteConfirmation/index.js';
+export { HelloWorldWidget } from './HelloWorld/index.js';

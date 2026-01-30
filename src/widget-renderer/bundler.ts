@@ -129,48 +129,81 @@ function generateHydrationScript(widgetName: string, props: Record<string, any>)
       }
     </script>
     <script type="module">
-      // Load Preact from CDN
-      import { h, render } from 'https://esm.sh/preact@10.19.0';
+      import { h, hydrate } from 'https://esm.sh/preact@10.19.0';
       import { useState, useEffect, useCallback } from 'https://esm.sh/preact@10.19.0/hooks';
-      
-      // Make Preact available globally for widgets
-      window.preact = { h, render, useState, useEffect, useCallback };
-      
-      // Widget component loaders - these will be dynamically imported
-      // For now, widgets are SSR'd and we'll add minimal interactivity
-      // Full hydration would require bundling widget code separately
-      
-      // Add click handlers to SSR'd HTML for basic interactivity
-      function addInteractivity() {
-        const container = document.getElementById('widget-root');
-        if (!container) return;
-        
-        // Find all buttons and add click handlers
-        const buttons = container.querySelectorAll('button');
-        buttons.forEach(btn => {
-          const onclick = btn.getAttribute('data-onclick');
-          if (onclick) {
-            btn.addEventListener('click', () => {
+
+      const props = window.__WIDGET_PROPS__;
+      const widgetName = window.__WIDGET_NAME__;
+
+      // Widget-specific hydration
+      if (widgetName === 'HelloWorld') {
+        const root = document.getElementById('widget-root');
+        const button = root?.querySelector('[data-action="increment"]');
+        const counterSpan = root?.querySelector('[data-counter]');
+
+        if (button && counterSpan) {
+          let count = 0;
+          button.addEventListener('click', () => {
+            count++;
+            counterSpan.textContent = count;
+            alert('Button clicked! Count is now: ' + count);
+            
+            // Update status text
+            const statusText = root.querySelector('p[style*="marginTop"]');
+            if (statusText) {
+              statusText.textContent = '✅ Hydration works!';
+            }
+          });
+          console.log('✅ HelloWorld hydrated');
+        }
+      } else if (widgetName === 'SlotCards') {
+        const buttons = document.querySelectorAll('[data-action="book"]');
+        buttons.forEach((button) => {
+          button.addEventListener('click', async () => {
+            const venueId = button.getAttribute('data-venue-id');
+            const venueName = button.getAttribute('data-venue-name');
+            const startTime = button.getAttribute('data-start-time');
+            const durationMinutes = button.getAttribute('data-duration-minutes');
+            const price = button.getAttribute('data-price');
+            const currency = button.getAttribute('data-currency');
+            const courtName = button.getAttribute('data-court-name');
+
+            if (window.openai?.callTool) {
               try {
-                eval(onclick);
-              } catch (e) {
-                console.error('Button click error:', e);
+                await window.openai.callTool({
+                  toolName: 'book_court',
+                  params: {
+                    venue_id: venueId,
+                    venue_name: venueName,
+                    start_time: startTime,
+                    duration_minutes: parseInt(durationMinutes || '90', 10),
+                    price: parseFloat(price || '0'),
+                    currency: currency || 'GBP',
+                    court_name: courtName,
+                  },
+                });
+              } catch (error) {
+                console.error('Booking error:', error);
+                alert('Booking failed: ' + (error instanceof Error ? error.message : String(error)));
               }
-            });
-          }
+            }
+          });
         });
-        
-        // Notify size after interactivity is added
-        setTimeout(() => {
-          if (window.notifySize) window.notifySize();
-        }, 100);
+        console.log('✅ SlotCards hydrated (' + buttons.length + ' buttons)');
+      } else if (widgetName === 'CheckoutWizard') {
+        // Multi-step wizard hydration will be handled by widget-specific code
+        console.log('✅ CheckoutWizard rendered (hydration handled by widget)');
       }
-      
-      // Start interactivity setup
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', addInteractivity);
-      } else {
-        addInteractivity();
+
+      // Notify parent of size
+      function notifySize() {
+        const height = document.documentElement.scrollHeight;
+        window.parent.postMessage({ type: 'resize', height }, '*');
+      }
+
+      setTimeout(notifySize, 100);
+      if (typeof ResizeObserver !== 'undefined') {
+        new ResizeObserver(notifySize).observe(document.body);
       }
     </script>
   `;
@@ -239,6 +272,44 @@ function generateHTMLTemplate(
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
     }
+
+    /* Checkmark Animation */
+    @keyframes checkmarkDraw {
+      0% { stroke-dashoffset: 22; }
+      100% { stroke-dashoffset: 0; }
+    }
+
+    @keyframes checkmarkCircleFill {
+      0% { stroke-dashoffset: 157; }
+      100% { stroke-dashoffset: 0; }
+    }
+
+    @keyframes confettiFall {
+      0% { transform: translateY(-100px) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(600px) rotate(720deg); opacity: 0; }
+    }
+
+    @keyframes starScale {
+      0% { transform: scale(0); opacity: 0; }
+      50% { transform: scale(1.3); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes starGlow {
+      0%, 100% { filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.5)); }
+      50% { filter: drop-shadow(0 0 20px rgba(251, 191, 36, 0.9)); }
+    }
+
+    @keyframes sparkleFade {
+      0% {
+        opacity: 1;
+        transform: translate(-50%, -50%) rotate(var(--angle)) translateX(40px) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) rotate(var(--angle)) translateX(60px) scale(0);
+      }
+    }
     
     @media (prefers-reduced-motion: reduce) {
       * {
@@ -301,6 +372,11 @@ export async function bundleWidget(
       case 'FavoriteConfirmation': {
         const favoriteConfModule = await import('../widgets/FavoriteConfirmation/index.js');
         WidgetComponent = favoriteConfModule.FavoriteConfirmationWidget;
+        break;
+      }
+      case 'HelloWorld': {
+        const helloModule = await import('../widgets/HelloWorld/index.js');
+        WidgetComponent = helloModule.HelloWorldWidget;
         break;
       }
       default:

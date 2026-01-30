@@ -193,9 +193,9 @@ function SlotCard({
                           venue_id: slot.venue_id,
                           venue_name: slot.venue_name,
                           start_time: slot.start_time,
-                          duration_minutes: slot.duration_minutes,
+                          duration_minutes: slot.duration_minutes || 90,
                           price: slot.price,
-                          currency: slot.currency,
+                          currency: slot.currency || 'GBP',
                           court_name: slot.court_name,
                         },
                       });
@@ -211,8 +211,16 @@ function SlotCard({
                     window.open(slot.booking_url, '_blank');
                   }
                 }}
+                data-action="book"
+                data-venue-id={slot.venue_id}
+                data-venue-name={slot.venue_name}
+                data-start-time={slot.start_time}
+                data-duration-minutes={slot.duration_minutes || 90}
+                data-price={slot.price}
+                data-currency={slot.currency || 'GBP'}
+                data-court-name={slot.court_name}
               >
-                Book Now
+                📅 Book Now
               </button>
             )}
             {slot.calendar_link && (

@@ -1,13 +1,19 @@
 /**
  * Checkout Wizard Widget
  *
- * Multi-step booking wizard with fake payment simulation.
- * Steps: Review → Details → Payment → Confirmation
+ * 4-step interactive checkout flow for booking a padel court:
+ * 1. Review - Slot details and summary
+ * 2. Details - User information form
+ * 3. Payment - Payment method selection (demo mode)
+ * 4. Confirm - Final confirmation and booking
  */
 
 import { h } from 'preact';
 import { useState, useCallback } from 'preact/hooks';
 import { useChatGPTTool } from '../common/hooks.js';
+import { injectAnimationStyles } from '../common/animations.js';
+import { BookingConfirmationWidget } from '../BookingConfirmation/index.js';
+import '../global.d.js';
 
 export interface CheckoutWizardProps {
   slot: {
@@ -19,442 +25,631 @@ export interface CheckoutWizardProps {
     currency: string;
     court_name?: string;
   };
-  mode?: 'demo' | 'real';
+  mode?: 'demo' | 'live';
   autoFillUser?: boolean;
   widgetSessionId?: string;
 }
 
-type CheckoutStep = 'review' | 'details' | 'payment' | 'confirmation';
+type Step = 1 | 2 | 3 | 4;
 
 export function CheckoutWizardWidget(props: CheckoutWizardProps) {
-  const { slot, mode = 'demo', autoFillUser = true } = props;
-  const [currentStep, setCurrentStep] = useState<CheckoutStep>('review');
-  const [bookingRef, setBookingRef] = useState<string>('');
+  const { slot, mode = 'demo', autoFillUser = false } = props;
+  const [currentStep, setCurrentStep] = useState<Step>(1);
   const [isProcessing, setIsProcessing] = useState(false);
-  
   const { callTool } = useChatGPTTool();
 
-  // Generate booking reference
-  const generateBookingRef = useCallback(() => {
-    const now = new Date();
-    const date = now.toISOString().slice(0, 10).replace(/-/g, '');
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    let code = '';
-    for (let i = 0; i < 4; i++) {
-      code += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return `PF-${date}-${code}`;
-  }, []);
+  // User details form state
+  const [userDetails, setUserDetails] = useState({
+    name: autoFillUser ? 'Demo User' : '',
+    email: autoFillUser ? 'demo@example.com' : '',
+    phone: autoFillUser ? '+44 20 1234 5678' : '',
+  });
+
+  // Payment method state
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'paypal' | null>(null);
+  const [cardDetails, setCardDetails] = useState({
+    number: '',
+    expiry: '',
+    cvv: '',
+    name: '',
+  });
+
+  // Inject animation styles
+  if (typeof document !== 'undefined') {
+    injectAnimationStyles();
+  }
 
   const handleNext = useCallback(() => {
-    if (currentStep === 'review') {
-      setCurrentStep('details');
-    } else if (currentStep === 'details') {
-      setCurrentStep('payment');
+    if (currentStep < 4) {
+      setCurrentStep((currentStep + 1) as Step);
     }
   }, [currentStep]);
 
   const handleBack = useCallback(() => {
-    if (currentStep === 'details') {
-      setCurrentStep('review');
-    } else if (currentStep === 'payment') {
-      setCurrentStep('details');
+    if (currentStep > 1) {
+      setCurrentStep((currentStep - 1) as Step);
     }
   }, [currentStep]);
 
-  const handlePayment = useCallback(async () => {
+  const [bookingResult, setBookingResult] = useState<{
+    id: string;
+    venue_name: string;
+    court_name: string;
+    date: string;
+    start_time: string;
+    end_time: string;
+    price: number;
+    currency: string;
+  } | null>(null);
+
+  const handleCompleteBooking = useCallback(async () => {
     setIsProcessing(true);
-    
-    // Simulate payment processing (1.5s delay)
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Generate booking reference
-    const ref = generateBookingRef();
-    setBookingRef(ref);
-    
-    // Auto-track booking
+
     try {
-      await callTool('track_booking', {
-        venue_id: slot.venue_id,
-        venue_name: slot.venue_name,
-        court_name: slot.court_name || 'Court 1',
-        date: slot.start_time.split('T')[0],
-        start_time: slot.start_time.split('T')[1]?.substring(0, 5) || '00:00',
-        end_time: new Date(new Date(slot.start_time).getTime() + slot.duration_minutes * 60000)
-          .toISOString().split('T')[1]?.substring(0, 5) || '00:00',
-        price: slot.price,
-        currency: slot.currency,
-      });
+      // Calculate end time
+      const startDate = new Date(slot.start_time);
+      const endDate = new Date(startDate.getTime() + slot.duration_minutes * 60 * 1000);
+      const dateStr = startDate.toISOString().split('T')[0];
+      const startTimeStr = startDate.toTimeString().substring(0, 5);
+      const endTimeStr = endDate.toTimeString().substring(0, 5);
+
+      // In demo mode, simulate booking success
+      if (mode === 'demo') {
+        // Simulate API call delay
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // Create booking via track_booking tool
+        try {
+          const booking = await callTool('track_booking', {
+            venue_id: slot.venue_id,
+            venue_name: slot.venue_name,
+            court_name: slot.court_name || 'Court 1',
+            date: dateStr,
+            start_time: startTimeStr,
+            end_time: endTimeStr,
+            price: slot.price,
+            currency: slot.currency,
+            players: [userDetails.name],
+            notes: `Booked via Padel Finder demo. Contact: ${userDetails.email}, ${userDetails.phone}`,
+          });
+
+          // Extract booking ID from result (it might be in different formats)
+          let bookingId = 'demo-' + Date.now();
+          if (booking && typeof booking === 'object') {
+            bookingId = (booking as any).id || bookingId;
+          } else if (typeof booking === 'string') {
+            // Try to extract ID from JSON string
+            try {
+              const parsed = JSON.parse(booking);
+              bookingId = parsed.id || bookingId;
+            } catch {
+              // Use default
+            }
+          }
+
+          // Store booking result for confirmation display
+          setBookingResult({
+            id: bookingId,
+            venue_name: slot.venue_name,
+            court_name: slot.court_name || 'Court 1',
+            date: dateStr,
+            start_time: startTimeStr,
+            end_time: endTimeStr,
+            price: slot.price,
+            currency: slot.currency,
+          });
+
+          // Move to step 4 (confirmation)
+          setCurrentStep(4);
+        } catch (toolError) {
+          console.error('Tool call error:', toolError);
+          // Even if tool fails, show demo confirmation
+          setBookingResult({
+            id: 'demo-' + Date.now(),
+            venue_name: slot.venue_name,
+            court_name: slot.court_name || 'Court 1',
+            date: dateStr,
+            start_time: startTimeStr,
+            end_time: endTimeStr,
+            price: slot.price,
+            currency: slot.currency,
+          });
+          setCurrentStep(4);
+        }
+      } else {
+        // Live mode - would call actual booking API
+        throw new Error('Live booking not implemented in demo');
+      }
     } catch (error) {
-      console.error('Failed to track booking:', error);
+      console.error('Booking error:', error);
+      alert('Booking failed. Please try again.');
+    } finally {
+      setIsProcessing(false);
     }
-    
-    setIsProcessing(false);
-    setCurrentStep('confirmation');
-    
-    // Trigger confetti animation
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('booking-confirmed', { detail: { bookingRef: ref } }));
-    }
-  }, [slot, callTool, generateBookingRef]);
+  }, [slot, mode, userDetails, callTool]);
 
-  const formatTime = (timeStr: string) => {
-    const date = new Date(timeStr);
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    const displayHours = hours % 12 || 12;
-    return `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-GB', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
   };
 
-  const formatDate = (timeStr: string) => {
-    const date = new Date(timeStr);
-    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   };
-
-  const startTime = formatTime(slot.start_time);
-  const endTime = formatTime(new Date(new Date(slot.start_time).getTime() + slot.duration_minutes * 60000).toISOString());
-  const dateDisplay = formatDate(slot.start_time);
-  const priceDisplay = slot.price % 1 === 0 ? slot.price.toFixed(0) : slot.price.toFixed(2);
 
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h2 style={styles.title}>
-          {currentStep === 'confirmation' ? 'Booking Complete!' : 'Book Your Court'}
-        </h2>
-        <StepIndicator currentStep={currentStep} />
+        <h2 style={styles.title}>Complete Your Booking</h2>
+        <div style={styles.progressBar}>
+          {[1, 2, 3, 4].map((step) => {
+            const isActive = step === currentStep;
+            const isCompleted = step < currentStep;
+            return (
+              <div
+                key={step}
+                style={{
+                  ...styles.progressStep,
+                  ...(isActive ? styles.progressStepActive : {}),
+                  ...(isCompleted ? styles.progressStepCompleted : {}),
+                }}
+              >
+                <div
+                  style={{
+                    ...styles.progressStepNumber,
+                    ...(isActive
+                      ? { backgroundColor: '#2c5aa0', color: '#fff' }
+                      : isCompleted
+                      ? { backgroundColor: '#4caf50', color: '#fff' }
+                      : {}),
+                  }}
+                >
+                  {isCompleted ? '✓' : step}
+                </div>
+                <div
+                  style={{
+                    ...styles.progressStepLabel,
+                    ...(isActive ? { color: '#2c5aa0', fontWeight: 'bold' } : {}),
+                  }}
+                >
+                  {step === 1 && 'Review'}
+                  {step === 2 && 'Details'}
+                  {step === 3 && 'Payment'}
+                  {step === 4 && 'Confirm'}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       <div style={styles.content}>
-        {currentStep === 'review' && (
-          <ReviewStep slot={slot} dateDisplay={dateDisplay} startTime={startTime} endTime={endTime} priceDisplay={priceDisplay} />
+        {currentStep === 1 && (
+          <ReviewStep slot={slot} formatDate={formatDate} formatTime={formatTime} onNext={handleNext} />
         )}
-        {currentStep === 'details' && (
-          <DetailsStep autoFillUser={autoFillUser} />
+
+        {currentStep === 2 && (
+          <DetailsStep
+            userDetails={userDetails}
+            setUserDetails={setUserDetails}
+            onNext={handleNext}
+            onBack={handleBack}
+          />
         )}
-        {currentStep === 'payment' && (
-          <PaymentStep slot={slot} priceDisplay={priceDisplay} isProcessing={isProcessing} onPayment={handlePayment} />
-        )}
-        {currentStep === 'confirmation' && (
-          <ConfirmationStep
+
+        {currentStep === 3 && (
+          <PaymentStep
+            paymentMethod={paymentMethod}
+            setPaymentMethod={setPaymentMethod}
+            cardDetails={cardDetails}
+            setCardDetails={setCardDetails}
             slot={slot}
-            bookingRef={bookingRef}
-            dateDisplay={dateDisplay}
-            startTime={startTime}
-            endTime={endTime}
-            priceDisplay={priceDisplay}
+            onNext={handleNext}
+            onBack={handleBack}
+            mode={mode}
           />
         )}
-      </div>
 
-      <div style={styles.actions}>
-        {currentStep !== 'review' && currentStep !== 'confirmation' && (
-          <button style={styles.buttonSecondary} onClick={handleBack}>
-            Back
-          </button>
-        )}
-        {currentStep === 'review' && (
-          <button style={styles.buttonPrimary} onClick={handleNext}>
-            Continue
-          </button>
-        )}
-        {currentStep === 'details' && (
-          <button style={styles.buttonPrimary} onClick={handleNext}>
-            Continue to Payment
-          </button>
-        )}
-        {currentStep === 'payment' && (
-          <button
-            style={{ ...styles.buttonPrimary, opacity: isProcessing ? 0.6 : 1 }}
-            onClick={handlePayment}
-            disabled={isProcessing}
-          >
-            {isProcessing ? 'Processing...' : `Pay ${slot.currency}${priceDisplay}`}
-          </button>
-        )}
-        {currentStep === 'confirmation' && (
-          <button style={styles.buttonPrimary} onClick={() => window.parent.postMessage({ type: 'checkout-close' }, '*')}>
-            Done
-          </button>
-        )}
+        {currentStep === 4 && bookingResult ? (
+          <BookingConfirmationWidget
+            booking_id={bookingResult.id}
+            venue_name={bookingResult.venue_name}
+            court_name={bookingResult.court_name}
+            date={bookingResult.date}
+            start_time={bookingResult.start_time}
+            end_time={bookingResult.end_time}
+            price={bookingResult.price}
+            currency={bookingResult.currency}
+            widgetSessionId={props.widgetSessionId}
+          />
+        ) : currentStep === 4 ? (
+          <ConfirmStep
+            slot={slot}
+            userDetails={userDetails}
+            formatDate={formatDate}
+            formatTime={formatTime}
+            isProcessing={isProcessing}
+            onComplete={handleCompleteBooking}
+            mode={mode}
+          />
+        ) : null}
       </div>
     </div>
   );
 }
 
-function StepIndicator({ currentStep }: { currentStep: CheckoutStep }) {
-  const steps = [
-    { key: 'review', label: 'Review' },
-    { key: 'details', label: 'Details' },
-    { key: 'payment', label: 'Payment' },
-    { key: 'confirmation', label: 'Done' },
-  ];
-  
-  const currentIndex = steps.findIndex(s => s.key === currentStep);
-  
+function ReviewStep({
+  slot,
+  formatDate,
+  formatTime,
+  onNext,
+}: {
+  slot: CheckoutWizardProps['slot'];
+  formatDate: (date: string) => string;
+  formatTime: (date: string) => string;
+  onNext: () => void;
+}) {
+  const startDate = new Date(slot.start_time);
+  const endDate = new Date(startDate.getTime() + slot.duration_minutes * 60 * 1000);
+
   return (
-    <div style={styles.steps}>
-      {steps.map((step, i) => (
-        <div key={step.key} style={styles.stepContainer}>
-          <div
-            style={{
-              ...styles.stepCircle,
-              ...(i < currentIndex ? styles.stepCompleted : {}),
-              ...(i === currentIndex ? styles.stepActive : {}),
-            }}
-          >
-            {i < currentIndex ? '✓' : i + 1}
-          </div>
-          <span style={{ ...styles.stepLabel, ...(i === currentIndex ? styles.stepLabelActive : {}) }}>
-            {step.label}
+    <div style={styles.step}>
+      <h3 style={styles.stepTitle}>Review Your Booking</h3>
+      <div style={styles.reviewCard}>
+        <div style={styles.reviewRow}>
+          <span style={styles.reviewLabel}>Venue:</span>
+          <span style={styles.reviewValue}>{slot.venue_name}</span>
+        </div>
+        <div style={styles.reviewRow}>
+          <span style={styles.reviewLabel}>Court:</span>
+          <span style={styles.reviewValue}>{slot.court_name || 'Court 1'}</span>
+        </div>
+        <div style={styles.reviewRow}>
+          <span style={styles.reviewLabel}>Date:</span>
+          <span style={styles.reviewValue}>{formatDate(slot.start_time)}</span>
+        </div>
+        <div style={styles.reviewRow}>
+          <span style={styles.reviewLabel}>Time:</span>
+          <span style={styles.reviewValue}>
+            {formatTime(slot.start_time)} - {formatTime(endDate.toISOString())}
           </span>
-          {i < steps.length - 1 && <div style={styles.stepLine} />}
         </div>
-      ))}
+        <div style={styles.reviewRow}>
+          <span style={styles.reviewLabel}>Duration:</span>
+          <span style={styles.reviewValue}>{slot.duration_minutes} minutes</span>
+        </div>
+        <div style={{ ...styles.reviewRow, ...styles.reviewTotal }}>
+          <span style={styles.reviewLabel}>Total:</span>
+          <span style={styles.reviewPrice}>
+            {slot.currency} {slot.price.toFixed(2)}
+          </span>
+        </div>
+      </div>
+      <button style={styles.primaryButton} onClick={onNext}>
+        Continue to Details →
+      </button>
     </div>
   );
 }
 
-function ReviewStep({ slot, dateDisplay, startTime, endTime, priceDisplay }: any) {
-  return (
-    <div>
-      <div style={styles.bookingCard}>
-        <div style={styles.venueHeader}>
-          <span style={styles.venueIcon}>🎾</span>
-          <div>
-            <h3 style={styles.venueName}>{slot.venue_name}</h3>
-            <p style={styles.courtName}>{slot.court_name || 'Court 1'}</p>
-          </div>
-        </div>
-        <div style={styles.detailsGrid}>
-          <div style={styles.detailItem}>
-            <span style={styles.detailIcon}>📅</span>
-            <span style={styles.detailLabel}>Date</span>
-            <span style={styles.detailValue}>{dateDisplay}</span>
-          </div>
-          <div style={styles.detailItem}>
-            <span style={styles.detailIcon}>⏰</span>
-            <span style={styles.detailLabel}>Time</span>
-            <span style={styles.detailValue}>{startTime} - {endTime}</span>
-          </div>
-          <div style={styles.detailItem}>
-            <span style={styles.detailIcon}>⏱️</span>
-            <span style={styles.detailLabel}>Duration</span>
-            <span style={styles.detailValue}>{slot.duration_minutes} min</span>
-          </div>
-        </div>
-      </div>
-      <div style={styles.priceSummary}>
-        <div style={styles.priceRow}>
-          <span>Court rental</span>
-          <span>{slot.currency}{priceDisplay}</span>
-        </div>
-        <div style={styles.priceRow}>
-          <span>Booking fee</span>
-          <span>Free</span>
-        </div>
-        <div style={{ ...styles.priceRow, ...styles.priceRowTotal }}>
-          <span>Total</span>
-          <span>{slot.currency}{priceDisplay}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DetailsStep({ autoFillUser }: { autoFillUser: boolean }) {
-  // Pre-filled demo user data
-  const defaultUser = {
-    name: 'Alex Johnson',
-    email: 'alex@example.com',
-    phone: '+44 7700 900123',
-  };
+function DetailsStep({
+  userDetails,
+  setUserDetails,
+  onNext,
+  onBack,
+}: {
+  userDetails: { name: string; email: string; phone: string };
+  setUserDetails: (details: { name: string; email: string; phone: string }) => void;
+  onNext: () => void;
+  onBack: () => void;
+}) {
+  const isValid = userDetails.name && userDetails.email && userDetails.phone;
 
   return (
-    <div>
-      <div style={styles.formSection}>
-        <h4 style={styles.sectionTitle}>Player Information</h4>
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Full Name</label>
+    <div style={styles.step}>
+      <h3 style={styles.stepTitle}>Your Details</h3>
+      <div style={styles.form}>
+        <div style={styles.formField}>
+          <label style={styles.label}>Full Name *</label>
           <input
             type="text"
+            value={userDetails.name}
+            onChange={(e) =>
+              setUserDetails({ ...userDetails, name: (e.target as HTMLInputElement).value })
+            }
+            placeholder="John Doe"
             style={styles.input}
-            defaultValue={autoFillUser ? defaultUser.name : ''}
-            placeholder="John Smith"
+            required
           />
         </div>
-        <div style={styles.formRow}>
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Email</label>
-            <input
-              type="email"
-              style={styles.input}
-              defaultValue={autoFillUser ? defaultUser.email : ''}
-              placeholder="john@example.com"
-            />
-          </div>
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Phone</label>
-            <input
-              type="tel"
-              style={styles.input}
-              defaultValue={autoFillUser ? defaultUser.phone : ''}
-              placeholder="+44 7700 900123"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PaymentStep({ slot, priceDisplay, isProcessing, onPayment }: any) {
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiry, setExpiry] = useState('');
-  const [cvv, setCvv] = useState('');
-
-  const formatCardNumber = (value: string) => {
-    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    const matches = v.match(/\d{4,16}/g);
-    const match = matches && matches[0] || '';
-    const parts = [];
-    for (let i = 0, len = match.length; i < len; i += 4) {
-      parts.push(match.substring(i, i + 4));
-    }
-    return parts.length ? parts.join(' ') : v;
-  };
-
-  const formatExpiry = (value: string) => {
-    const v = value.replace(/\D/g, '');
-    if (v.length >= 2) {
-      return v.substring(0, 2) + '/' + v.substring(2, 4);
-    }
-    return v;
-  };
-
-  return (
-    <div>
-      <div style={styles.paymentAmount}>
-        <span style={styles.amountLabel}>Amount to pay</span>
-        <span style={styles.amountValue}>{slot.currency}{priceDisplay}</span>
-      </div>
-      <div style={styles.paymentForm}>
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Card Number</label>
+        <div style={styles.formField}>
+          <label style={styles.label}>Email *</label>
           <input
-            type="text"
+            type="email"
+            value={userDetails.email}
+            onChange={(e) =>
+              setUserDetails({ ...userDetails, email: (e.target as HTMLInputElement).value })
+            }
+            placeholder="john@example.com"
             style={styles.input}
-            placeholder="1234 5678 9012 3456"
-            maxLength={19}
-            value={cardNumber}
-            onChange={(e: any) => setCardNumber(formatCardNumber(e.target.value))}
+            required
           />
-          <span style={styles.inputHint}>Any 16 digits work for demo</span>
         </div>
-        <div style={styles.formRow}>
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Expiry Date</label>
-            <input
-              type="text"
-              style={styles.input}
-              placeholder="MM/YY"
-              maxLength={5}
-              value={expiry}
-              onChange={(e: any) => setExpiry(formatExpiry(e.target.value))}
-            />
-          </div>
-          <div style={styles.formGroup}>
-            <label style={styles.label}>CVV</label>
-            <input
-              type="text"
-              style={styles.input}
-              placeholder="123"
-              maxLength={3}
-              value={cvv}
-              onChange={(e: any) => setCvv(e.target.value)}
-            />
-          </div>
-        </div>
-        <div style={styles.formGroup}>
-          <label style={styles.label}>Name on Card</label>
-          <input type="text" style={styles.input} defaultValue="DEMO USER" placeholder="JOHN SMITH" />
+        <div style={styles.formField}>
+          <label style={styles.label}>Phone *</label>
+          <input
+            type="tel"
+            value={userDetails.phone}
+            onChange={(e) =>
+              setUserDetails({ ...userDetails, phone: (e.target as HTMLInputElement).value })
+            }
+            placeholder="+44 20 1234 5678"
+            style={styles.input}
+            required
+          />
         </div>
       </div>
-      <div style={styles.secureBadge}>
-        <span>🔒</span>
-        <span>Secure payment (Demo Mode)</span>
+      <div style={styles.buttonRow}>
+        <button style={styles.secondaryButton} onClick={onBack}>
+          ← Back
+        </button>
+        <button style={styles.primaryButton} onClick={onNext} disabled={!isValid}>
+          Continue to Payment →
+        </button>
       </div>
     </div>
   );
 }
 
-function ConfirmationStep({ slot, bookingRef, dateDisplay, startTime, endTime, priceDisplay }: any) {
-  const addToCalendar = () => {
-    const date = slot.start_time.split('T')[0].replace(/-/g, '');
-    const start = slot.start_time.split('T')[1]?.replace(/:/g, '').substring(0, 4) || '0000';
-    const endTime = new Date(new Date(slot.start_time).getTime() + slot.duration_minutes * 60000)
-      .toISOString().split('T')[1]?.replace(/:/g, '').substring(0, 4) || '0000';
-    
-    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE` +
-      `&text=${encodeURIComponent('Padel - ' + slot.venue_name)}` +
-      `&dates=${date}T${start}00/${date}T${endTime}00` +
-      `&details=${encodeURIComponent('Court: ' + (slot.court_name || 'Court 1') + '\\nRef: ' + bookingRef)}`;
-    window.open(url, '_blank');
-  };
+function PaymentStep({
+  paymentMethod,
+  setPaymentMethod,
+  cardDetails,
+  setCardDetails,
+  slot,
+  onNext,
+  onBack,
+  mode,
+}: {
+  paymentMethod: 'card' | 'paypal' | null;
+  setPaymentMethod: (method: 'card' | 'paypal') => void;
+  cardDetails: { number: string; expiry: string; cvv: string; name: string };
+  setCardDetails: (details: { number: string; expiry: string; cvv: string; name: string }) => void;
+  slot: CheckoutWizardProps['slot'];
+  onNext: () => void;
+  onBack: () => void;
+  mode: 'demo' | 'live';
+}) {
+  const isCardValid =
+    paymentMethod === 'card' &&
+    cardDetails.number.length >= 13 &&
+    cardDetails.expiry.length === 5 &&
+    cardDetails.cvv.length >= 3 &&
+    cardDetails.name.length > 0;
 
-  const shareBooking = () => {
-    const text = `Padel booked! ${slot.venue_name} on ${dateDisplay} at ${startTime}. Ref: ${bookingRef}`;
-    if (navigator.share) {
-      navigator.share({ title: 'Padel Booking', text });
-    } else if (navigator.clipboard) {
-      navigator.clipboard.writeText(text);
-    }
-  };
+  const isValid = paymentMethod === 'paypal' || (paymentMethod === 'card' && isCardValid);
 
   return (
-    <div style={styles.confirmationContent}>
-      <div style={styles.successAnimation}>
-        <div style={styles.successCircle}>
-          <svg style={styles.checkmark} viewBox="0 0 52 52">
-            <circle style={styles.checkmarkCircle} cx="26" cy="26" r="25" fill="none" />
-            <path style={styles.checkmarkCheck} fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
-          </svg>
+    <div style={styles.step}>
+      <h3 style={styles.stepTitle}>Payment Method</h3>
+      {mode === 'demo' && (
+        <div style={styles.demoBanner}>
+          🎭 Demo Mode: Payment will be simulated
         </div>
-      </div>
-      <h2 style={styles.confirmationTitle}>Booking Confirmed!</h2>
-      <p style={styles.bookingRef}>Reference: <strong>{bookingRef}</strong></p>
-      <div style={styles.confirmationCard}>
-        <div style={styles.confirmationVenue}>
-          <span style={styles.venueEmoji}>🎾</span>
-          <div>
-            <h4 style={styles.confirmationVenueName}>{slot.venue_name}</h4>
-            <p style={styles.confirmationCourtName}>{slot.court_name || 'Court 1'}</p>
-          </div>
-        </div>
-        <div style={styles.confirmationDetails}>
-          <div style={styles.confDetail}>
-            <span style={styles.confIcon}>📅</span>
-            <span>{dateDisplay}</span>
-          </div>
-          <div style={styles.confDetail}>
-            <span style={styles.confIcon}>⏰</span>
-            <span>{startTime} - {endTime}</span>
-          </div>
-          <div style={styles.confDetail}>
-            <span style={styles.confIcon}>💰</span>
-            <span>{slot.currency}{priceDisplay} paid</span>
-          </div>
-        </div>
-      </div>
-      <div style={styles.confirmationActions}>
-        <button style={styles.buttonSecondary} onClick={addToCalendar}>
-          📅 Add to Calendar
+      )}
+      <div style={styles.paymentMethods}>
+        <button
+          style={{
+            ...styles.paymentMethodButton,
+            ...(paymentMethod === 'card' ? styles.paymentMethodButtonActive : {}),
+          }}
+          onClick={() => setPaymentMethod('card')}
+        >
+          <span style={styles.paymentIcon}>💳</span>
+          <span>Credit/Debit Card</span>
         </button>
-        <button style={styles.buttonSecondary} onClick={shareBooking}>
-          🔗 Share
+        <button
+          style={{
+            ...styles.paymentMethodButton,
+            ...(paymentMethod === 'paypal' ? styles.paymentMethodButtonActive : {}),
+          }}
+          onClick={() => setPaymentMethod('paypal')}
+        >
+          <span style={styles.paymentIcon}>🅿️</span>
+          <span>PayPal</span>
         </button>
       </div>
+
+      {paymentMethod === 'card' && (
+        <div style={styles.cardForm}>
+          <div style={styles.formField}>
+            <label style={styles.label}>Card Number</label>
+            <input
+              type="text"
+              value={cardDetails.number}
+              onChange={(e) =>
+                setCardDetails({
+                  ...cardDetails,
+                  number: (e.target as HTMLInputElement).value.replace(/\s/g, ''),
+                })
+              }
+              placeholder="1234 5678 9012 3456"
+              maxLength={16}
+              style={styles.input}
+            />
+          </div>
+          <div style={styles.formRow}>
+            <div style={styles.formField}>
+              <label style={styles.label}>Expiry</label>
+              <input
+                type="text"
+                value={cardDetails.expiry}
+                onChange={(e) => {
+                  let value = (e.target as HTMLInputElement).value.replace(/\D/g, '');
+                  if (value.length >= 2) {
+                    value = value.substring(0, 2) + '/' + value.substring(2, 4);
+                  }
+                  setCardDetails({ ...cardDetails, expiry: value });
+                }}
+                placeholder="MM/YY"
+                maxLength={5}
+                style={styles.input}
+              />
+            </div>
+            <div style={styles.formField}>
+              <label style={styles.label}>CVV</label>
+              <input
+                type="text"
+                value={cardDetails.cvv}
+                onChange={(e) =>
+                  setCardDetails({
+                    ...cardDetails,
+                    cvv: (e.target as HTMLInputElement).value.replace(/\D/g, '').substring(0, 4),
+                  })
+                }
+                placeholder="123"
+                maxLength={4}
+                style={styles.input}
+              />
+            </div>
+          </div>
+          <div style={styles.formField}>
+            <label style={styles.label}>Cardholder Name</label>
+            <input
+              type="text"
+              value={cardDetails.name}
+              onChange={(e) =>
+                setCardDetails({ ...cardDetails, name: (e.target as HTMLInputElement).value })
+              }
+              placeholder="John Doe"
+              style={styles.input}
+            />
+          </div>
+        </div>
+      )}
+
+      {paymentMethod === 'paypal' && (
+        <div style={styles.paypalInfo}>
+          <p>You'll be redirected to PayPal to complete payment.</p>
+        </div>
+      )}
+
+      <div style={styles.summaryBox}>
+        <div style={styles.summaryRow}>
+          <span>Subtotal:</span>
+          <span>{slot.currency} {slot.price.toFixed(2)}</span>
+        </div>
+        <div style={styles.summaryRow}>
+          <span>Booking Fee:</span>
+          <span>{slot.currency} 0.00</span>
+        </div>
+        <div style={{ ...styles.summaryRow, ...styles.summaryTotal }}>
+          <span>Total:</span>
+          <span style={styles.totalPrice}>
+            {slot.currency} {slot.price.toFixed(2)}
+          </span>
+        </div>
+      </div>
+
+      <div style={styles.buttonRow}>
+        <button style={styles.secondaryButton} onClick={onBack}>
+          ← Back
+        </button>
+        <button style={styles.primaryButton} onClick={onNext} disabled={!isValid}>
+          Continue to Confirmation →
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ConfirmStep({
+  slot,
+  userDetails,
+  formatDate,
+  formatTime,
+  isProcessing,
+  onComplete,
+  mode,
+}: {
+  slot: CheckoutWizardProps['slot'];
+  userDetails: { name: string; email: string; phone: string };
+  formatDate: (date: string) => string;
+  formatTime: (date: string) => string;
+  isProcessing: boolean;
+  onComplete: () => void;
+  mode: 'demo' | 'live';
+}) {
+  const startDate = new Date(slot.start_time);
+  const endDate = new Date(startDate.getTime() + slot.duration_minutes * 60 * 1000);
+
+  return (
+    <div style={styles.step}>
+      <h3 style={styles.stepTitle}>Confirm & Book</h3>
+      <div style={styles.confirmCard}>
+        <div style={styles.confirmSection}>
+          <h4 style={styles.confirmSectionTitle}>Booking Details</h4>
+          <div style={styles.confirmRow}>
+            <span>{slot.venue_name}</span>
+            <span>{slot.court_name || 'Court 1'}</span>
+          </div>
+          <div style={styles.confirmRow}>
+            <span>{formatDate(slot.start_time)}</span>
+            <span>
+              {formatTime(slot.start_time)} - {formatTime(endDate.toISOString())}
+            </span>
+          </div>
+        </div>
+
+        <div style={styles.confirmSection}>
+          <h4 style={styles.confirmSectionTitle}>Contact Information</h4>
+          <div style={styles.confirmRow}>
+            <span>{userDetails.name}</span>
+          </div>
+          <div style={styles.confirmRow}>
+            <span>{userDetails.email}</span>
+          </div>
+          <div style={styles.confirmRow}>
+            <span>{userDetails.phone}</span>
+          </div>
+        </div>
+
+        <div style={styles.confirmSection}>
+          <h4 style={styles.confirmSectionTitle}>Payment</h4>
+          <div style={styles.confirmRow}>
+            <span>Total Amount</span>
+            <span style={styles.confirmPrice}>
+              {slot.currency} {slot.price.toFixed(2)}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {mode === 'demo' && (
+        <div style={styles.demoBanner}>
+          🎭 This is a demo booking. No actual payment will be processed.
+        </div>
+      )}
+
+      <button
+        style={{ ...styles.primaryButton, ...styles.confirmButton }}
+        onClick={onComplete}
+        disabled={isProcessing}
+      >
+        {isProcessing ? (
+          <>
+            <span style={styles.spinner}>⏳</span> Processing...
+          </>
+        ) : (
+          'Complete Booking ✓'
+        )}
+      </button>
     </div>
   );
 }
@@ -462,160 +657,110 @@ function ConfirmationStep({ slot, bookingRef, dateDisplay, startTime, endTime, p
 const styles = {
   container: {
     padding: '24px',
-    maxWidth: '480px',
+    maxWidth: '600px',
     margin: '0 auto',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   },
   header: {
-    textAlign: 'center' as const,
-    marginBottom: '24px',
+    marginBottom: '32px',
   },
   title: {
-    fontSize: '22px',
+    fontSize: '24px',
     fontWeight: 'bold',
-    marginBottom: '20px',
+    marginBottom: '24px',
+    textAlign: 'center' as const,
   },
-  steps: {
+  progressBar: {
     display: 'flex',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: '0',
+    marginBottom: '24px',
   },
-  stepContainer: {
+  progressStep: {
+    flex: 1,
     display: 'flex',
     flexDirection: 'column' as const,
     alignItems: 'center',
+    gap: '8px',
     position: 'relative' as const,
   },
-  stepCircle: {
+  progressStepActive: {
+    opacity: 1,
+  },
+  progressStepCompleted: {
+    opacity: 0.7,
+  },
+  progressStepNumber: {
     width: '32px',
     height: '32px',
     borderRadius: '50%',
-    background: '#f0f0f0',
-    border: '2px solid #ddd',
+    backgroundColor: '#e0e0e0',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     fontSize: '14px',
     fontWeight: 'bold',
-    color: '#999',
+    color: '#666',
   },
-  stepActive: {
-    background: '#2c5aa0',
-    borderColor: '#2c5aa0',
-    color: '#fff',
-  },
-  stepCompleted: {
-    background: '#22c55e',
-    borderColor: '#22c55e',
-    color: '#fff',
-  },
-  stepLabel: {
-    fontSize: '11px',
-    color: '#999',
-    marginTop: '6px',
-  },
-  stepLabelActive: {
-    color: '#2c5aa0',
-    fontWeight: 'bold',
-  },
-  stepLine: {
-    width: '40px',
-    height: '2px',
-    background: '#ddd',
-    margin: '0 4px 20px 4px',
+  progressStepLabel: {
+    fontSize: '12px',
+    color: '#666',
+    textAlign: 'center' as const,
   },
   content: {
+    minHeight: '400px',
+  },
+  step: {
+    animation: 'fadeIn 0.3s ease-in',
+  },
+  stepTitle: {
+    fontSize: '20px',
+    fontWeight: 'bold',
     marginBottom: '24px',
   },
-  bookingCard: {
-    background: '#f9f9f9',
-    borderRadius: '16px',
+  reviewCard: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: '8px',
     padding: '20px',
-    marginBottom: '20px',
+    marginBottom: '24px',
   },
-  venueHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-    marginBottom: '16px',
-    paddingBottom: '16px',
-    borderBottom: '1px solid #e0e0e0',
-  },
-  venueIcon: {
-    fontSize: '32px',
-  },
-  venueName: {
-    fontSize: '18px',
-    fontWeight: 'bold',
-    margin: 0,
-  },
-  courtName: {
-    fontSize: '14px',
-    color: '#666',
-    margin: '4px 0 0',
-  },
-  detailsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: '12px',
-  },
-  detailItem: {
-    textAlign: 'center' as const,
-    padding: '12px 8px',
-    background: '#fff',
-    borderRadius: '10px',
-  },
-  detailIcon: {
-    display: 'block',
-    fontSize: '20px',
-    marginBottom: '4px',
-  },
-  detailLabel: {
-    display: 'block',
-    fontSize: '11px',
-    color: '#666',
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.5px',
-  },
-  detailValue: {
-    display: 'block',
-    fontSize: '13px',
-    fontWeight: 'bold',
-    marginTop: '4px',
-  },
-  priceSummary: {
-    background: '#f9f9f9',
-    borderRadius: '12px',
-    padding: '16px',
-  },
-  priceRow: {
+  reviewRow: {
     display: 'flex',
     justifyContent: 'space-between',
-    padding: '10px 0',
+    padding: '12px 0',
     borderBottom: '1px solid #e0e0e0',
-    fontSize: '14px',
-    color: '#666',
   },
-  priceRowTotal: {
-    borderTop: '2px solid #e0e0e0',
+  reviewTotal: {
     borderBottom: 'none',
     marginTop: '8px',
     paddingTop: '16px',
-    fontSize: '18px',
-    fontWeight: 'bold',
-    color: '#333',
+    borderTop: '2px solid #2c5aa0',
   },
-  formSection: {
+  reviewLabel: {
+    fontSize: '14px',
+    color: '#666',
+    fontWeight: '500',
+  },
+  reviewValue: {
+    fontSize: '14px',
+    color: '#333',
+    fontWeight: '600',
+  },
+  reviewPrice: {
+    fontSize: '20px',
+    color: '#2c5aa0',
+    fontWeight: 'bold',
+  },
+  form: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '16px',
     marginBottom: '24px',
   },
-  sectionTitle: {
-    fontSize: '15px',
-    fontWeight: 'bold',
-    marginBottom: '16px',
-  },
-  formGroup: {
-    marginBottom: '16px',
+  formField: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '8px',
   },
   formRow: {
     display: 'grid',
@@ -623,171 +768,146 @@ const styles = {
     gap: '16px',
   },
   label: {
-    display: 'block',
     fontSize: '14px',
-    fontWeight: 'bold',
-    marginBottom: '8px',
+    fontWeight: '600',
     color: '#333',
   },
   input: {
-    width: '100%',
-    padding: '10px',
-    fontSize: '14px',
-    border: '1px solid #ddd',
-    borderRadius: '8px',
-  },
-  inputHint: {
-    display: 'block',
-    fontSize: '11px',
-    color: '#999',
-    marginTop: '4px',
-  },
-  paymentAmount: {
-    textAlign: 'center' as const,
-    padding: '20px',
-    background: 'linear-gradient(135deg, #2c5aa0 0%, #1e3a5f 100%)',
-    borderRadius: '16px',
-    marginBottom: '20px',
-    color: '#fff',
-  },
-  amountLabel: {
-    display: 'block',
-    fontSize: '13px',
-    opacity: 0.9,
-    marginBottom: '4px',
-  },
-  amountValue: {
-    fontSize: '36px',
-    fontWeight: 'bold',
-  },
-  paymentForm: {
-    marginBottom: '20px',
-  },
-  secureBadge: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
     padding: '12px',
-    background: 'rgba(34, 197, 94, 0.1)',
-    borderRadius: '8px',
-    fontSize: '13px',
-    color: '#22c55e',
-  },
-  confirmationContent: {
-    textAlign: 'center' as const,
-  },
-  successAnimation: {
-    marginBottom: '24px',
-  },
-  successCircle: {
-    width: '80px',
-    height: '80px',
-    margin: '0 auto',
-    background: '#22c55e',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkmark: {
-    width: '40px',
-    height: '40px',
-  },
-  checkmarkCircle: {
-    stroke: '#22c55e',
-    strokeWidth: 2,
-  },
-  checkmarkCheck: {
-    stroke: '#fff',
-    strokeWidth: 3,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    strokeDasharray: 50,
-    strokeDashoffset: 50,
-    animation: 'checkmark 0.4s 0.3s ease-out forwards',
-  },
-  confirmationTitle: {
-    fontSize: '24px',
-    fontWeight: 'bold',
-    marginBottom: '8px',
-  },
-  bookingRef: {
-    color: '#666',
-    marginBottom: '24px',
-    fontSize: '14px',
-  },
-  confirmationCard: {
-    background: '#f9f9f9',
-    borderRadius: '16px',
-    padding: '20px',
-    marginBottom: '20px',
-    textAlign: 'left' as const,
-  },
-  confirmationVenue: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    marginBottom: '16px',
-    paddingBottom: '16px',
-    borderBottom: '1px solid #e0e0e0',
-  },
-  venueEmoji: {
-    fontSize: '28px',
-  },
-  confirmationVenueName: {
     fontSize: '16px',
-    fontWeight: 'bold',
-    margin: 0,
+    border: '1px solid #ddd',
+    borderRadius: '6px',
+    fontFamily: 'inherit',
   },
-  confirmationCourtName: {
-    fontSize: '13px',
-    color: '#666',
-    margin: '4px 0 0',
-  },
-  confirmationDetails: {
-    display: 'flex',
-    flexDirection: 'column' as const,
-    gap: '10px',
-  },
-  confDetail: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    fontSize: '14px',
-  },
-  confIcon: {
-    fontSize: '16px',
-  },
-  confirmationActions: {
+  buttonRow: {
     display: 'flex',
     gap: '12px',
-    marginBottom: '8px',
+    justifyContent: 'space-between',
   },
-  actions: {
-    display: 'flex',
-    gap: '12px',
-  },
-  buttonPrimary: {
-    flex: 1,
+  primaryButton: {
     backgroundColor: '#2c5aa0',
     color: '#fff',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '6px',
     padding: '12px 24px',
-    fontSize: '14px',
+    fontSize: '16px',
     fontWeight: 'bold',
     cursor: 'pointer',
-  },
-  buttonSecondary: {
     flex: 1,
+  },
+  secondaryButton: {
     backgroundColor: '#f0f0f0',
     color: '#333',
-    border: 'none',
-    borderRadius: '8px',
+    border: '1px solid #ddd',
+    borderRadius: '6px',
     padding: '12px 24px',
-    fontSize: '14px',
-    fontWeight: 'bold',
+    fontSize: '16px',
+    fontWeight: '600',
     cursor: 'pointer',
+  },
+  paymentMethods: {
+    display: 'flex',
+    gap: '12px',
+    marginBottom: '24px',
+  },
+  paymentMethodButton: {
+    flex: 1,
+    padding: '16px',
+    border: '2px solid #e0e0e0',
+    borderRadius: '8px',
+    backgroundColor: '#fff',
+    cursor: 'pointer',
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    gap: '8px',
+    fontSize: '14px',
+    fontWeight: '600',
+  },
+  paymentMethodButtonActive: {
+    borderColor: '#2c5aa0',
+    backgroundColor: '#f0f7ff',
+  },
+  paymentIcon: {
+    fontSize: '32px',
+  },
+  cardForm: {
+    marginBottom: '24px',
+  },
+  paypalInfo: {
+    padding: '16px',
+    backgroundColor: '#f9f9f9',
+    borderRadius: '8px',
+    marginBottom: '24px',
+    textAlign: 'center' as const,
+    color: '#666',
+  },
+  summaryBox: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: '8px',
+    padding: '16px',
+    marginBottom: '24px',
+  },
+  summaryRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    padding: '8px 0',
+    fontSize: '14px',
+  },
+  summaryTotal: {
+    borderTop: '2px solid #2c5aa0',
+    marginTop: '8px',
+    paddingTop: '12px',
+    fontWeight: 'bold',
+  },
+  totalPrice: {
+    fontSize: '18px',
+    color: '#2c5aa0',
+  },
+  confirmCard: {
+    backgroundColor: '#f9f9f9',
+    borderRadius: '8px',
+    padding: '20px',
+    marginBottom: '24px',
+  },
+  confirmSection: {
+    marginBottom: '20px',
+  },
+  confirmSectionTitle: {
+    fontSize: '16px',
+    fontWeight: 'bold',
+    marginBottom: '12px',
+    color: '#333',
+  },
+  confirmRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    padding: '8px 0',
+    fontSize: '14px',
+    color: '#666',
+  },
+  confirmPrice: {
+    fontSize: '18px',
+    fontWeight: 'bold',
+    color: '#2c5aa0',
+  },
+  demoBanner: {
+    backgroundColor: '#fff3cd',
+    border: '1px solid #ffc107',
+    borderRadius: '6px',
+    padding: '12px',
+    marginBottom: '24px',
+    textAlign: 'center' as const,
+    fontSize: '14px',
+    color: '#856404',
+  },
+  confirmButton: {
+    width: '100%',
+    fontSize: '18px',
+    padding: '16px',
+  },
+  spinner: {
+    display: 'inline-block',
+    animation: 'spin 1s linear infinite',
   },
 };
