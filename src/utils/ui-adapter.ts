@@ -17,6 +17,8 @@ export interface UIAdapter {
     groupByVenue?: boolean;
     maxSlotsPerVenue?: number;
     title?: string;
+    widgetSessionId?: string;
+    enableBooking?: boolean;
   }): Promise<MCPEmbeddedResource | ChatGPTWidgetResource>;
   
   createEmptyStateUI(params: EmptyStateParams): Promise<MCPEmbeddedResource | ChatGPTWidgetResource>;
@@ -52,6 +54,8 @@ class GooseUIAdapter implements UIAdapter {
       groupByVenue?: boolean;
       maxSlotsPerVenue?: number;
       title?: string;
+      widgetSessionId?: string;
+      enableBooking?: boolean;
     }
   ): Promise<MCPEmbeddedResource> {
     return createSlotCardsResource(slots, options);
@@ -99,13 +103,15 @@ class ChatGPTUIAdapter implements UIAdapter {
       maxSlotsPerVenue?: number;
       title?: string;
       widgetSessionId?: string;
+      enableBooking?: boolean;
     }
-  ): Promise<ChatGPTWidgetResource> {
+  ): Promise<ChatGPTWidgetResource | MCPEmbeddedResource> {
     const bundle = await bundleWidget('SlotCards', {
       slots,
       groupByVenue: options?.groupByVenue ?? true,
       widgetSessionId: options?.widgetSessionId,
       title: options?.title,
+      enableBooking: options?.enableBooking ?? true,
     });
 
     return {

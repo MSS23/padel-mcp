@@ -9,16 +9,18 @@ import { h } from 'preact';
 import { useState, useCallback } from 'preact/hooks';
 import type { EnhancedTimeSlot } from '../../types/index.js';
 import { useWidgetState, useBookingActions } from '../common/hooks.js';
+import '../global.d.js';
 
 export interface SlotCardsWidgetProps {
   slots: EnhancedTimeSlot[];
   groupByVenue?: boolean;
   widgetSessionId?: string;
   title?: string;
+  enableBooking?: boolean;
 }
 
 export function SlotCardsWidget(props: SlotCardsWidgetProps) {
-  const { slots, groupByVenue = true, title } = props;
+  const { slots, groupByVenue = true, title, enableBooking = true } = props;
   const { expandedSlots, toggleSlot } = useWidgetState(props.widgetSessionId);
   const { handleBooking, handleFavorite } = useBookingActions();
 
@@ -53,6 +55,7 @@ export function SlotCardsWidget(props: SlotCardsWidgetProps) {
             onToggleSlot={toggleSlot}
             onBooking={handleBooking}
             onFavorite={handleFavorite}
+            enableBooking={enableBooking}
           />
         ))}
       </div>
@@ -72,6 +75,7 @@ export function SlotCardsWidget(props: SlotCardsWidgetProps) {
             onToggle={() => toggleSlot(`${slot.venue_id}-${slot.start_time}`)}
             onBooking={() => handleBooking(slot)}
             onFavorite={() => handleFavorite(slot.venue_id, slot.venue_name)}
+            enableBooking={enableBooking}
           />
         ))}
       </div>
@@ -86,6 +90,7 @@ function VenueGroup({
   onToggleSlot,
   onBooking,
   onFavorite,
+  enableBooking = true,
 }: {
   venueName: string;
   slots: EnhancedTimeSlot[];
@@ -93,6 +98,7 @@ function VenueGroup({
   onToggleSlot: (id: string) => void;
   onBooking: (slot: EnhancedTimeSlot) => void;
   onFavorite: (venueId: string, venueName: string) => void;
+  enableBooking?: boolean;
 }) {
   const firstSlot = slots[0];
   const distance = (firstSlot as any).distance_km;
@@ -122,6 +128,7 @@ function VenueGroup({
             onToggle={() => onToggleSlot(`${slot.venue_id}-${slot.start_time}`)}
             onBooking={() => onBooking(slot)}
             onFavorite={() => onFavorite(slot.venue_id, slot.venue_name)}
+            enableBooking={enableBooking}
           />
         ))}
       </div>
@@ -135,12 +142,14 @@ function SlotCard({
   onToggle,
   onBooking,
   onFavorite,
+  enableBooking = true,
 }: {
   slot: EnhancedTimeSlot;
   isExpanded: boolean;
   onToggle: () => void;
   onBooking: () => void;
   onFavorite: () => void;
+  enableBooking?: boolean;
 }) {
   const startTime = slot.start_time.split('T')[1]?.substring(0, 5) || '';
   const endTime = slot.end_time.split('T')[1]?.substring(0, 5) || '';
@@ -171,16 +180,53 @@ function SlotCard({
             </div>
           )}
           <div style={styles.slotActions}>
-            {slot.booking_url && (
-              <button style={styles.bookButton} onClick={onBooking}>
+            {enableBooking && (
+              <button
+                style={styles.bookButton}
+                onClick={async () => {
+                  // Call book_court tool via ChatGPT API
+                  if (window.openai?.callTool) {
+                    try {
+                      await window.openai.callTool({
+                        toolName: 'book_court',
+                        params: {
+                          venue_id: slot.venue_id,
+                          venue_name: slot.venue_name,
+                          start_time: slot.start_time,
+                          duration_minutes: slot.duration_minutes,
+                          price: slot.price,
+                          currency: slot.currency,
+                          court_name: slot.court_name,
+                        },
+                      });
+                    } catch (error) {
+                      console.error('Booking error:', error);
+                      // Fallback to booking URL if tool call fails
+                      if (slot.booking_url) {
+                        window.open(slot.booking_url, '_blank');
+                      }
+                    }
+                  } else if (slot.booking_url) {
+                    // Fallback to direct booking URL
+                    window.open(slot.booking_url, '_blank');
+                  }
+                }}
+              >
                 Book Now
               </button>
             )}
             {slot.calendar_link && (
-              <a href={slot.calendar_link} style={styles.calendarLink}>
+              <a href={slot.calendar_link} style={styles.calendarLink} target="_blank" rel="noopener noreferrer">
                 📅 Add to Calendar
               </a>
             )}
+            <button
+              style={styles.favoriteButtonSmall}
+              onClick={onFavorite}
+              title="Add to favorites"
+            >
+              ⭐ Favorite
+            </button>
           </div>
         </div>
       )}
@@ -306,6 +352,15 @@ const styles = {
     color: '#2c5aa0',
     textDecoration: 'none',
     fontSize: '14px',
+  },
+  favoriteButtonSmall: {
+    backgroundColor: 'transparent',
+    color: '#666',
+    border: '1px solid #ddd',
+    borderRadius: '4px',
+    padding: '8px 12px',
+    fontSize: '14px',
+    cursor: 'pointer',
   },
   emptyState: {
     textAlign: 'center' as const,

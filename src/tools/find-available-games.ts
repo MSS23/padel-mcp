@@ -327,7 +327,8 @@ export function registerFindAvailableGames(server: McpServer): void {
         groupByVenue: true,
         maxSlotsPerVenue: 5,
         title: `🎾 ${enhancedSlots.length} Available Slots - ${date}`,
-        // widgetSessionId, // TODO: Add when widgets are implemented
+        widgetSessionId,
+        enableBooking: true, // Enable Book Now buttons
       });
 
       // Determine display mode for ChatGPT

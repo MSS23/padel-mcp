@@ -40,5 +40,6 @@ declare global {
     openai?: OpenAIWindow;
     __WIDGET_PROPS__?: Record<string, any>;
     __WIDGET_SESSION_ID__?: string;
+    notifySize?: () => void;
   }
 }

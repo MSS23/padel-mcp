@@ -16,6 +16,7 @@ import { registerFavorites } from './favorites.js';
 import { registerWeeklyAvailability } from './weekly-availability.js';
 import { registerFindCheapest } from './find-cheapest.js';
 import { registerPeakHours } from './peak-hours.js';
+import { registerBookCourt } from './book-court.js';
 
 /**
  * Register all MCP tools with the server
@@ -35,6 +36,9 @@ export function registerTools(server: McpServer): void {
   registerWeeklyAvailability(server);
   registerFindCheapest(server);
   registerPeakHours(server);
+  
+  // Booking tools
+  registerBookCourt(server);
 }
 
 // Re-export schemas for documentation
@@ -49,3 +53,4 @@ export { saveFavoriteSchema, removeFavoriteSchema, listFavoritesSchema, quickChe
 export { weeklyAvailabilitySchema } from './weekly-availability.js';
 export { findCheapestSchema } from './find-cheapest.js';
 export { peakHoursSchema } from './peak-hours.js';
+export { bookCourtSchema } from './book-court.js';

@@ -5,7 +5,7 @@
  */
 
 import { h } from 'preact';
-import { useState, useCallback, FormEvent } from 'preact/hooks';
+import { useState, useCallback } from 'preact/hooks';
 import { useChatGPTTool } from '../common/hooks.js';
 
 export interface SearchFormWidgetProps {
@@ -26,7 +26,7 @@ export function SearchFormWidget(props: SearchFormWidgetProps) {
 
   const { callTool, requestDisplayMode } = useChatGPTTool();
 
-  const handleSubmit = useCallback(async (e: FormEvent) => {
+  const handleSubmit = useCallback(async (e: Event) => {
     e.preventDefault();
     setIsSubmitting(true);
 

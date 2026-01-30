@@ -4,6 +4,7 @@
 
 import { useState, useCallback, useEffect } from 'preact/hooks';
 import type { EnhancedTimeSlot } from '../../types/index.js';
+import './global.d.js';
 
 /**
  * Hook for managing widget session state

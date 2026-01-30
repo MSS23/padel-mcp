@@ -324,6 +324,20 @@ class BookingsService {
 // Export singleton instance
 export const bookings = new BookingsService();
 
+/**
+ * Generate booking reference: PF-YYYYMMDD-XXXX
+ * Format: PF-20260131-A7K9
+ */
+export function generateBookingReference(): string {
+  const date = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 4; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return `PF-${date}-${code}`;
+}
+
 // Export helper functions for tools
 export async function getBookings(): Promise<BookingRecord[]> {
   return bookings.getBookings();

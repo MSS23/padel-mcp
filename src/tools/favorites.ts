@@ -8,6 +8,8 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { preferences } from '../services/preferences.js';
 import { checkVenueAvailability, getVenueDetails } from '../services/playtomic.js';
+import { bundleWidget } from '../widget-renderer/bundler.js';
+import { detectClientType, getUIAdapter } from '../utils/ui-adapter.js';
 
 export const saveFavoriteSchema = {
   venue_id: z.string().describe('The venue ID to save'),
@@ -69,6 +71,39 @@ export function registerFavorites(server: McpServer): void {
       });
 
       const favorites = await preferences.getFavorites();
+
+      // Detect client type and create confirmation widget
+      const clientType = detectClientType();
+      
+      if (clientType === 'chatgpt' || clientType === 'auto') {
+        const widgetHtml = await bundleWidget('FavoriteConfirmation', {
+          venue: {
+            id: venue_id,
+            name: venue_name,
+          },
+        });
+
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `⭐ Saved **${venue_name}**${nickname ? ` as "${nickname}"` : ''} to favorites!\n\nYou now have ${favorites.length} favorite venue(s).`,
+            },
+            {
+              type: 'resource' as const,
+              resource: {
+                uri: 'ui://widget/favorite-confirmation',
+                mimeType: 'text/html+skybridge' as const,
+                text: widgetHtml.html,
+              },
+            },
+          ],
+          _meta: {
+            'openai/outputTemplate': 'ui://widget/favorite-confirmation',
+            'openai/toolInvocation/invoked': 'Venue saved to favorites',
+          },
+        };
+      }
 
       return {
         content: [
