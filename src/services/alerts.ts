@@ -313,7 +313,7 @@ class AlertsService {
    */
   async cleanupExpired(): Promise<number> {
     const data = await this.load();
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toLocaleDateString('en-CA');
     const initialLength = data.alerts.length;
 
     data.alerts = data.alerts.filter((a) => a.date >= today);

@@ -66,6 +66,7 @@ export function registerFindCheapest(server: McpServer): void {
               text: `Could not find location: "${location}".`,
             },
           ],
+          isError: true,
         };
       }
 

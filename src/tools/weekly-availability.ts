@@ -53,7 +53,7 @@ function getDayName(dateStr: string): string {
 function addDays(dateStr: string, days: number): string {
   const date = new Date(dateStr);
   date.setDate(date.getDate() + days);
-  return date.toISOString().split('T')[0];
+  return date.toLocaleDateString('en-CA');
 }
 
 export function registerWeeklyAvailability(server: McpServer): void {
@@ -93,6 +93,7 @@ export function registerWeeklyAvailability(server: McpServer): void {
                 text: `Could not find location: "${location}".`,
               },
             ],
+            isError: true,
           };
         }
 

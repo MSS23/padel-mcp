@@ -23,8 +23,9 @@ export const findAvailableGamesSchema = {
     .describe('Your location (address, city name, or coordinates like "51.5074,-0.1278")'),
   date: z
     .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .describe('Date to find games (YYYY-MM-DD format)'),
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD')
+    .optional()
+    .describe('Date to find games (YYYY-MM-DD). Defaults to today (server local time).'),
   preferred_time_start: z
     .string()
     .regex(/^\d{2}:\d{2}$/)
@@ -60,17 +61,18 @@ export const findAvailableGamesSchema = {
 export function registerFindAvailableGames(server: McpServer): void {
   server.tool(
     'find_available_games',
-    'Find the nearest available padel games based on your location and preferred time. Returns slots with weather info, booking links, and calendar links.',
+    'Main search: find open padel court slots near a location on one date, optionally within a start-time window (e.g. 18:00-21:00). Use for "can I play near X on <date> at <time>?". For "tonight/tomorrow/weekend" without a date, quick_search is simpler. Returns slots grouped by venue with price, weather, calendar link and a JSON block. Data is simulated demo data.',
     findAvailableGamesSchema,
     async ({
       location,
-      date,
+      date: dateArg,
       preferred_time_start,
       preferred_time_end,
       max_distance_km,
       max_results,
       include_weather,
     }) => {
+      const date = dateArg ?? new Date().toLocaleDateString('en-CA'); // en-CA = YYYY-MM-DD, local time
       const maxDistanceKm = max_distance_km ?? 10;
       const maxResultCount = max_results ?? 20;
       const showWeather = include_weather ?? true;
@@ -86,6 +88,7 @@ export function registerFindAvailableGames(server: McpServer): void {
               text: `Could not find location: "${location}". Please try a different address or use coordinates.`,
             },
           ],
+          isError: true,
         };
       }
 

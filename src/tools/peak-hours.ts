@@ -22,7 +22,7 @@ export const peakHoursSchema = {
 function getNextWeekday(dayOffset: number = 1): string {
   const date = new Date();
   date.setDate(date.getDate() + dayOffset);
-  return date.toISOString().split('T')[0];
+  return date.toLocaleDateString('en-CA');
 }
 
 export function registerPeakHours(server: McpServer): void {

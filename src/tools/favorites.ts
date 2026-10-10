@@ -203,7 +203,7 @@ export function registerFavorites(server: McpServer): void {
       }
 
       // Default to today
-      const checkDate = date ?? new Date().toISOString().split('T')[0];
+      const checkDate = date ?? new Date().toLocaleDateString('en-CA');
       const timeRange = parseTimePreference(time_preference);
 
       let summary = `**Quick Check for ${checkDate}**`;

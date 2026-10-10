@@ -46,7 +46,7 @@ export const checkAvailabilitySchema = {
 export function registerCheckAvailability(server: McpServer): void {
   server.tool(
     'check_availability',
-    'Check available padel court time slots at a specific venue. Returns slots with weather info, booking links, and calendar links.',
+    'List open slots at ONE known venue on a date (needs venue_id from find_nearby_courts / find_available_games). Optional start-time window. Returns slots with price, weather and calendar links. Data is simulated demo data.',
     checkAvailabilitySchema,
     async ({ venue_id, venue_name, date, start_time, end_time, include_weather }) => {
       const showWeather = include_weather ?? true;
@@ -67,12 +67,17 @@ export function registerCheckAvailability(server: McpServer): void {
           if (!venue_name) {
             venue_name = details.name;
           }
+        } else {
+          return {
+            content: [{ type: 'text' as const, text: `Unknown venue_id "${venue_id}". Get a venue_id from find_nearby_courts or find_available_games first.` }],
+            isError: true,
+          };
         }
       } catch {
         // Continue without venue details
       }
 
-      // Get availability from Playtomic
+      // Get (simulated) availability
       const slots = await checkVenueAvailability(venue_id, date, venue_name);
 
       // Filter by time if specified

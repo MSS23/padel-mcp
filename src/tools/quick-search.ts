@@ -18,8 +18,9 @@ import type { EnhancedTimeSlot, Coordinates, QuickSearchPreset } from '../types/
 /**
  * Get date string for today
  */
+// Dates use server local time (en-CA formats as YYYY-MM-DD); toISOString() would be UTC and roll over at the wrong hour.
 function getTodayDate(): string {
-  return new Date().toISOString().split('T')[0];
+  return new Date().toLocaleDateString('en-CA');
 }
 
 /**
@@ -28,7 +29,7 @@ function getTodayDate(): string {
 function getTomorrowDate(): string {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  return tomorrow.toISOString().split('T')[0];
+  return tomorrow.toLocaleDateString('en-CA');
 }
 
 /**
@@ -46,8 +47,8 @@ function getWeekendDates(): { saturday: string; sunday: string } {
   sunday.setDate(saturday.getDate() + 1);
 
   return {
-    saturday: saturday.toISOString().split('T')[0],
-    sunday: sunday.toISOString().split('T')[0],
+    saturday: saturday.toLocaleDateString('en-CA'),
+    sunday: sunday.toLocaleDateString('en-CA'),
   };
 }
 
@@ -66,8 +67,8 @@ function getNextWeekDates(): { start: string; end: string } {
   sunday.setDate(monday.getDate() + 6);
 
   return {
-    start: monday.toISOString().split('T')[0],
-    end: sunday.toISOString().split('T')[0],
+    start: monday.toLocaleDateString('en-CA'),
+    end: sunday.toLocaleDateString('en-CA'),
   };
 }
 
@@ -113,7 +114,7 @@ function getPresetConfig(preset: QuickSearchPreset): {
       const current = new Date(start);
       const endDate = new Date(end);
       while (current <= endDate) {
-        dates.push(current.toISOString().split('T')[0]);
+        dates.push(current.toLocaleDateString('en-CA'));
         current.setDate(current.getDate() + 1);
       }
       return {
@@ -199,6 +200,7 @@ export function registerQuickSearch(server: McpServer): void {
               text: `Could not find location: "${searchLocation}". Please try a different address.`,
             },
           ],
+          isError: true,
         };
       }
 

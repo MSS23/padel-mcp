@@ -1,15 +1,16 @@
 /**
- * Playtomic Service - Mock Data Demo Version
+ * Venue + availability data source - SIMULATED.
  *
- * This version uses rich, realistic mock data to demonstrate ChatGPT App functionality
- * without requiring Playtomic API credentials.
+ * There is no live Playtomic integration. The original client called
+ * https://api.playtomic.io/v1/{tenants,availability}; that host no longer
+ * resolves (NXDOMAIN, checked 2026-10-10) and the client was replaced by the
+ * mock below in Jan 2026. Venues are fictional; slots and prices are generated
+ * deterministically. Keep the exported function signatures if a real source is
+ * plugged back in - every tool goes through them.
  *
- * Features:
- * - 100+ venues across 10+ UK cities
- * - Dynamic pricing based on time, day, venue type
- * - Realistic availability patterns (busier evenings/weekends)
- * - Weather-affected outdoor courts
- * - Varied venue characteristics (indoor/outdoor, court count, amenities)
+ * - 38 fictional venues across 13 UK cities
+ * - Prices vary by time of day, weekday/weekend and venue tier
+ * - Evenings and weekends are busier
  */
 
 import type {
@@ -42,7 +43,7 @@ interface MockVenueData {
   description: string;
 }
 
-// Comprehensive mock venue database - 100+ venues across UK
+// Fictional venue database (38 venues)
 const MOCK_VENUES: MockVenueData[] = [
   // === LONDON VENUES (35) ===
   // West London
@@ -761,7 +762,7 @@ function generateVenueAvailability(
   date: string
 ): TimeSlot[] {
   const slots: TimeSlot[] = [];
-  const targetDate = new Date(date);
+  const targetDate = new Date(`${date}T00:00:00`); // local midnight; new Date('YYYY-MM-DD') is UTC
   const now = new Date();
   const isToday = targetDate.toDateString() === now.toDateString();
   const currentHour = isToday ? now.getHours() : -1;

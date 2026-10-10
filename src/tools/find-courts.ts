@@ -50,6 +50,7 @@ export function registerFindCourts(server: McpServer): void {
               text: `Could not find location: "${location}". Please try a different address or use coordinates (e.g., "51.5074,-0.1278").`,
             },
           ],
+          isError: true,
         };
       }
 

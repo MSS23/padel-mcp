@@ -56,6 +56,7 @@ export function registerComparePrices(server: McpServer): void {
               text: `Could not find location: "${location}".`,
             },
           ],
+          isError: true,
         };
       }
 

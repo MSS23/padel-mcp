@@ -22,7 +22,7 @@ export const bookCourtSchema = {
 export function registerBookCourt(server: McpServer): void {
   server.tool(
     'book_court',
-    'Start booking process for a padel court slot with interactive checkout wizard. Opens a multi-step checkout flow.',
+    'DEMO ONLY: opens a simulated checkout widget for a slot. No real booking or payment is made and nothing is sent to Playtomic. Only call when the user explicitly wants to try the demo checkout.',
     bookCourtSchema,
     async (params) => {
       const {

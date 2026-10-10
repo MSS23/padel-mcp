@@ -8,6 +8,7 @@
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createAlert, cancelAlert, getAlerts, getActiveAlerts } from '../services/alerts.js';
+import { getVenueDetails } from '../services/playtomic.js';
 import type { PersistentAlert } from '../types/index.js';
 
 export const setNotificationSchema = {
@@ -60,26 +61,31 @@ export function registerSetNotification(server: McpServer): void {
   // Set new alert
   server.tool(
     'set_availability_alert',
-    'Set up a persistent alert for when a preferred time slot becomes available. Alerts are saved to disk and support webhook notifications.',
+    'Watch one venue for a free slot starting inside a time window on a date. Saved to ~/.padel-finder/alerts.json. Nothing polls automatically: call check_alerts (or schedule it) to evaluate alerts and fire the notification (log file, webhook POST, or callback = returned in check_alerts).',
     setNotificationSchema,
     async ({ venue_id, venue_name, date, preferred_time_start, preferred_time_end, notification_method, webhook_url }) => {
       const method = notification_method ?? 'log';
+      const fail = (text: string) => ({ content: [{ type: 'text' as const, text }], isError: true });
+
+      const venue = await getVenueDetails(venue_id);
+      if (!venue) {
+        return fail(`Unknown venue_id "${venue_id}". Get a venue_id from find_nearby_courts or find_available_games first.`);
+      }
+      if (preferred_time_end < preferred_time_start) {
+        return fail(`preferred_time_end (${preferred_time_end}) is before preferred_time_start (${preferred_time_start}).`);
+      }
+      if (date < new Date().toLocaleDateString('en-CA')) {
+        return fail(`Date ${date} is in the past.`);
+      }
 
       // Validate webhook URL if method is webhook
       if (method === 'webhook' && !webhook_url) {
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text: 'Webhook URL is required when notification_method is "webhook".',
-            },
-          ],
-        };
+        return fail('webhook_url is required when notification_method is "webhook".');
       }
 
       const alert = await createAlert({
         venue_id,
-        venue_name: venue_name ?? venue_id,
+        venue_name: venue_name ?? venue.name,
         date,
         time_start: preferred_time_start,
         time_end: preferred_time_end,

@@ -121,6 +121,7 @@ export function registerSearchWithFilters(server: McpServer): void {
               text: `Could not find location: "${location}". Please try a different address or use coordinates.`,
             },
           ],
+          isError: true,
         };
       }
 
