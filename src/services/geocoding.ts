@@ -8,8 +8,6 @@
 import type { Coordinates, GeocodingResult } from '../types/index.js';
 import { cache } from './cache.js';
 
-const GEOCODING_PROVIDER = process.env.GEOCODING_PROVIDER || 'nominatim';
-const GEOCODING_API_KEY = process.env.GEOCODING_API_KEY || '';
 const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org';
 
 /**
@@ -33,7 +31,7 @@ export async function geocodeAddress(address: string): Promise<Coordinates | nul
     // Add User-Agent header (required by Nominatim)
     const response = await fetch(url.toString(), {
       headers: {
-        'User-Agent': 'PadelFinderMCP/2.0 (https://github.com/your-repo)',
+        'User-Agent': 'PadelFinderMCP/2.1 (https://github.com/MSS23/padel-mcp)',
       },
       signal: AbortSignal.timeout(5000),
     });
@@ -101,7 +99,7 @@ function fallbackToHardcodedLocation(address: string): Coordinates | null {
 
   for (const [city, coords] of Object.entries(locations)) {
     if (lower.includes(city)) {
-      console.log(`Using hardcoded location for: ${city}`);
+      console.error(`Using hardcoded location for: ${city}`);
       return coords;
     }
   }
@@ -150,7 +148,7 @@ export async function reverseGeocode(coords: Coordinates): Promise<string | null
 
     const response = await fetch(url.toString(), {
       headers: {
-        'User-Agent': 'PadelFinderMCP/2.0 (https://github.com/your-repo)',
+        'User-Agent': 'PadelFinderMCP/2.1 (https://github.com/MSS23/padel-mcp)',
       },
       signal: AbortSignal.timeout(5000),
     });

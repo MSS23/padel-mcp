@@ -26,14 +26,14 @@ export const checkAlertsSchema = {
 export function registerCheckAlerts(server: McpServer): void {
   server.tool(
     'check_alerts',
-    'Check all active availability alerts for matching slots. Use this to manually poll for availability or set up scheduled checks.',
+    'Evaluate active availability alerts now and send their notifications for any matching slots. An alert fires once, then is marked triggered. Call this when the user asks "did anything open up?" or from a scheduled job.',
     checkAlertsSchema,
     async ({ alert_id, cleanup_expired }) => {
       // Cleanup expired alerts if requested
       if (cleanup_expired) {
         const removed = await alerts.cleanupExpired();
         if (removed > 0) {
-          console.log(`Cleaned up ${removed} expired alerts`);
+          console.error(`Cleaned up ${removed} expired alerts`);
         }
       }
 

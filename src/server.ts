@@ -6,24 +6,14 @@
  * for deployment on platforms like Render.
  */
 
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
-import { registerTools } from './tools/index.js';
+import { createPadelServer } from './tools/index.js';
 import { createServer } from 'http';
 import { parse } from 'url';
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 
 async function main(): Promise<void> {
-  // Create MCP server instance
-  const server = new McpServer({
-    name: 'padel-finder',
-    version: '2.0.0',
-  });
-
-  // Register all tools
-  registerTools(server);
-
   // Store active transports
   const transports = new Map<string, SSEServerTransport>();
 
@@ -48,7 +38,7 @@ async function main(): Promise<void> {
       res.end(JSON.stringify({
         status: 'ok',
         server: 'padel-finder',
-        version: '2.0.0',
+        version: '2.1.0',
         endpoints: {
           sse: '/sse',
           messages: '/messages'
@@ -71,7 +61,9 @@ async function main(): Promise<void> {
         transports.delete(sessionId);
       });
 
-      await server.connect(transport);
+      // One McpServer per connection: a shared instance only tracks the latest
+      // transport, so concurrent clients would get each other's responses.
+      await createPadelServer().connect(transport);
       return;
     }
 

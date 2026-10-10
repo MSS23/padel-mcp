@@ -5,7 +5,6 @@
     "dist",
     "src/widgets/**/*",
     "src/widget-renderer/**/*",
-    "src/_widget-renderer_backup/**/*",
     "src/demo/**/*"
   ]
 }
