@@ -82,7 +82,7 @@ You should see:
 ## Mock Data
 
 The demo uses realistic mock data:
-- **122 venues** across 13 UK cities
+- **38 fictional venues** across 13 UK cities
 - **Dynamic pricing** based on time, day, and venue type
 - **Realistic availability** patterns (busier evenings/weekends)
 - **Weather information** for outdoor courts
