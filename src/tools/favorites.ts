@@ -23,6 +23,10 @@ export const removeFavoriteSchema = {
 
 export const listFavoritesSchema = {};
 
+export const setDefaultLocationSchema = {
+  location: z.string().min(2).describe('Place name, postcode or "lat,lon"'),
+};
+
 export const quickCheckSchema = {
   date: z
     .string()
@@ -179,6 +183,19 @@ export function registerFavorites(server: McpServer): void {
             text: summary + '```json\n' + JSON.stringify(favorites, null, 2) + '\n```',
           },
         ],
+      };
+    }
+  );
+
+  // Default location (read by quick_search when no location is given)
+  server.tool(
+    'set_default_location',
+    'Save a default location (place name, postcode or "lat,lon"). quick_search uses it when no location is given.',
+    setDefaultLocationSchema,
+    async ({ location }) => {
+      await preferences.setDefaultLocation(location);
+      return {
+        content: [{ type: 'text' as const, text: `Default location set to "${location}".` }],
       };
     }
   );

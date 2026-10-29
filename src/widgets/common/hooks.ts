@@ -73,19 +73,12 @@ export function useChatGPTTool() {
 export function useBookingActions() {
   const { callTool } = useChatGPTTool();
 
-  const handleBooking = useCallback(async (slot: EnhancedTimeSlot) => {
-    // Track booking via ChatGPT
-    await callTool('track_booking', {
-      venue_id: slot.venue_id,
-      start_time: slot.start_time,
-      venue_name: slot.venue_name,
-    });
-
+  const handleBooking = useCallback((slot: EnhancedTimeSlot) => {
     // Open booking URL
     if (slot.booking_url) {
       window.open(slot.booking_url, '_blank');
     }
-  }, [callTool]);
+  }, []);
 
   const handleFavorite = useCallback(async (venueId: string, venueName: string) => {
     await callTool('save_favorite_venue', {
