@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: padel-finder-mcp
+    name: padel-mcp
     runtime: node
     region: oregon
     plan: free
