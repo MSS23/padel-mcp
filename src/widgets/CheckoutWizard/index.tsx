@@ -10,7 +10,6 @@
 
 import { h } from 'preact';
 import { useState, useCallback } from 'preact/hooks';
-import { useChatGPTTool } from '../common/hooks.js';
 import { injectAnimationStyles } from '../common/animations.js';
 import { BookingConfirmationWidget } from '../BookingConfirmation/index.js';
 import '../global.d.js';
@@ -36,7 +35,6 @@ export function CheckoutWizardWidget(props: CheckoutWizardProps) {
   const { slot, mode = 'demo', autoFillUser = false } = props;
   const [currentStep, setCurrentStep] = useState<Step>(1);
   const [isProcessing, setIsProcessing] = useState(false);
-  const { callTool } = useChatGPTTool();
 
   // User details form state
   const [userDetails, setUserDetails] = useState({
@@ -98,64 +96,18 @@ export function CheckoutWizardWidget(props: CheckoutWizardProps) {
         // Simulate API call delay
         await new Promise(resolve => setTimeout(resolve, 1500));
 
-        // Create booking via track_booking tool
-        try {
-          const booking = await callTool('track_booking', {
-            venue_id: slot.venue_id,
-            venue_name: slot.venue_name,
-            court_name: slot.court_name || 'Court 1',
-            date: dateStr,
-            start_time: startTimeStr,
-            end_time: endTimeStr,
-            price: slot.price,
-            currency: slot.currency,
-            players: [userDetails.name],
-            notes: `Booked via Padel Finder demo. Contact: ${userDetails.email}, ${userDetails.phone}`,
-          });
-
-          // Extract booking ID from result (it might be in different formats)
-          let bookingId = 'demo-' + Date.now();
-          if (booking && typeof booking === 'object') {
-            bookingId = (booking as any).id || bookingId;
-          } else if (typeof booking === 'string') {
-            // Try to extract ID from JSON string
-            try {
-              const parsed = JSON.parse(booking);
-              bookingId = parsed.id || bookingId;
-            } catch {
-              // Use default
-            }
-          }
-
-          // Store booking result for confirmation display
-          setBookingResult({
-            id: bookingId,
-            venue_name: slot.venue_name,
-            court_name: slot.court_name || 'Court 1',
-            date: dateStr,
-            start_time: startTimeStr,
-            end_time: endTimeStr,
-            price: slot.price,
-            currency: slot.currency,
-          });
-
-          // Move to step 4 (confirmation)
-          setCurrentStep(4);
-        } catch (toolError) {
-          console.error('Tool call error:', toolError);
-          // Even if tool fails, show demo confirmation
-          setBookingResult({
-            id: 'demo-' + Date.now(),
-            venue_name: slot.venue_name,
-            court_name: slot.court_name || 'Court 1',
-            date: dateStr,
-            start_time: startTimeStr,
-            end_time: endTimeStr,
-            price: slot.price,
-            currency: slot.currency,
-          });
-          setCurrentStep(4);
-        }
+        // Demo only: nothing is stored (there is no booking tool).
+        setBookingResult({
+          id: 'demo-' + Date.now(),
+          venue_name: slot.venue_name,
+          court_name: slot.court_name || 'Court 1',
+          date: dateStr,
+          start_time: startTimeStr,
+          end_time: endTimeStr,
+          price: slot.price,
+          currency: slot.currency,
+        });
+        setCurrentStep(4);
       } else {
         // Live mode - would call actual booking API
         throw new Error('Live booking not implemented in demo');
@@ -166,7 +118,7 @@ export function CheckoutWizardWidget(props: CheckoutWizardProps) {
     } finally {
       setIsProcessing(false);
     }
-  }, [slot, mode, userDetails, callTool]);
+  }, [slot, mode]);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr);

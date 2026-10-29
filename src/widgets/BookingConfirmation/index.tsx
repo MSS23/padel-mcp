@@ -7,7 +7,6 @@
 
 import { h } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
-import { useChatGPTTool } from '../common/hooks.js';
 import { injectAnimationStyles } from '../common/animations.js';
 import '../global.d.js';
 
@@ -37,7 +36,6 @@ export function BookingConfirmationWidget(props: BookingConfirmationProps) {
 
   const [showConfetti, setShowConfetti] = useState(true);
   const [showCheckmark, setShowCheckmark] = useState(true);
-  const { callTool } = useChatGPTTool();
 
   // Inject animation styles
   if (typeof document !== 'undefined') {
@@ -82,17 +80,6 @@ export function BookingConfirmationWidget(props: BookingConfirmationProps) {
       window.open(calendarLink, '_blank');
     } catch (error) {
       console.error('Calendar error:', error);
-    }
-  };
-
-  const handleViewBookings = async () => {
-    try {
-      await callTool('get_booking_history', {
-        filter: 'upcoming',
-        limit: 10,
-      });
-    } catch (error) {
-      console.error('Error fetching bookings:', error);
     }
   };
 
@@ -170,9 +157,6 @@ export function BookingConfirmationWidget(props: BookingConfirmationProps) {
       <div style={styles.actions}>
         <button style={styles.primaryButton} onClick={handleAddToCalendar}>
           📅 Add to Calendar
-        </button>
-        <button style={styles.secondaryButton} onClick={handleViewBookings}>
-          View My Bookings
         </button>
       </div>
 

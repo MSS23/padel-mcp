@@ -28,8 +28,8 @@ Which tool to use:
 - "Where can I play tonight / tomorrow / this weekend near X?" -> quick_search (preset) or find_available_games (specific date and time window).
 - Venues near a place -> find_nearby_courts. One venue's slots -> check_availability (needs a venue_id from a search).
 - Cheapest options -> find_cheapest_time or compare_prices. Busy vs quiet times -> get_peak_hours.
-- Favourites (stored in ~/.padel-finder/preferences.json) -> save_favorite_venue, list_favorite_venues, quick_book_check.
-- Alerts (stored in ~/.padel-finder/alerts.json) -> set_availability_alert, then check_alerts to poll; nothing polls automatically.
+- Favourites (stored in ~/.padel-finder/preferences.json) -> save_favorite_venue, list_favorite_venues, quick_book_check. set_default_location saves the location quick_search uses when none is given.
+- Alerts (stored in ~/.padel-finder/alerts.json) -> set_availability_alert, then check_alerts to poll (the host can also run "padel-finder-mcp --check-alerts" on a schedule).
 Locations accept a place name, postcode or "lat,lon".`;
 
 /**

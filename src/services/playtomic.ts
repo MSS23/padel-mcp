@@ -5,8 +5,8 @@
  * https://api.playtomic.io/v1/{tenants,availability}; that host no longer
  * resolves (NXDOMAIN, checked 2026-10-10) and the client was replaced by the
  * mock below in Jan 2026. Venues are fictional; slots and prices are generated
- * deterministically. Keep the exported function signatures if a real source is
- * plugged back in - every tool goes through them.
+ * deterministically. A real provider plugs in through CourtDataSource /
+ * setCourtDataSource() below; every tool goes through the exported functions.
  *
  * - 38 fictional venues across 13 UK cities
  * - Prices vary by time of day, weekday/weekend and venue tier
@@ -843,6 +843,57 @@ function mockToVenue(mockVenue: MockVenueData, userCoords?: Coordinates): Venue 
 }
 
 /**
+ * Swap point for a real provider (e.g. the Playtomic partner API, which needs
+ * partner credentials). Implement these three calls and pass the object to
+ * setCourtDataSource(); caching, filtering and every tool sit on top of them.
+ */
+export interface CourtDataSource {
+  findVenues(coordinates: Coordinates, radiusKm: number, maxResults: number): Promise<Venue[]>;
+  getAvailability(venueId: string, date: string): Promise<TimeSlot[]>;
+  getVenueDetails(venueId: string): Promise<VenueDetails | null>;
+}
+
+/** The simulated data above, as a CourtDataSource. */
+export const mockCourtDataSource: CourtDataSource = {
+  async findVenues(coordinates, radiusKm, maxResults) {
+    return MOCK_VENUES
+      .filter((v) => calculateDistance(coordinates, v.coordinates) <= radiusKm)
+      .map((v) => mockToVenue(v, coordinates))
+      .sort((a, b) => (a.distance_km || 0) - (b.distance_km || 0))
+      .slice(0, maxResults);
+  },
+  async getAvailability(venueId, date) {
+    const mockVenue = MOCK_VENUES.find(v => v.id === venueId);
+    return mockVenue ? generateVenueAvailability(mockVenue, date) : [];
+  },
+  async getVenueDetails(venueId) {
+    const mockVenue = MOCK_VENUES.find(v => v.id === venueId);
+    if (!mockVenue) return null;
+    const venue = mockToVenue(mockVenue);
+    return {
+      ...venue,
+      description: mockVenue.description,
+      images: mockVenue.image_url ? [mockVenue.image_url] : [],
+      courts: Array.from({ length: mockVenue.courts }, (_, i) => ({
+        id: `${mockVenue.id}-court-${i + 1}`,
+        name: `Court ${i + 1}`,
+        type: i < mockVenue.indoor_courts ? 'indoor' : 'outdoor',
+        surface: 'artificial_grass',
+      })),
+      amenities: mockVenue.amenities,
+    };
+  },
+};
+
+let source: CourtDataSource = mockCourtDataSource;
+
+/** Replace the data source (clears cached results from the previous one). */
+export function setCourtDataSource(next: CourtDataSource): void {
+  source = next;
+  cache.clear();
+}
+
+/**
  * Find nearby padel venues
  */
 export async function findNearbyVenues(
@@ -857,18 +908,7 @@ export async function findNearbyVenues(
     return cached;
   }
 
-  // Find venues within radius
-  const venues = MOCK_VENUES
-    .map(mockVenue => {
-      const distance = calculateDistance(coordinates, mockVenue.coordinates);
-      if (distance <= radiusKm) {
-        return mockToVenue(mockVenue, coordinates);
-      }
-      return null;
-    })
-    .filter((v): v is Venue => v !== null)
-    .sort((a, b) => (a.distance_km || 0) - (b.distance_km || 0))
-    .slice(0, maxResults);
+  const venues = await source.findVenues(coordinates, radiusKm, maxResults);
 
   // Cache for 1 hour
   cache.set(cacheKey, venues, 60 * 60 * 1000);
@@ -890,12 +930,7 @@ export async function checkVenueAvailability(
     return cached;
   }
 
-  const mockVenue = MOCK_VENUES.find(v => v.id === venueId);
-  if (!mockVenue) {
-    return [];
-  }
-
-  const slots = generateVenueAvailability(mockVenue, date);
+  const slots = await source.getAvailability(venueId, date);
 
   // Cache for 5 minutes
   cache.set(cacheKey, slots, 5 * 60 * 1000);
@@ -947,25 +982,10 @@ export async function getVenueDetails(venueId: string): Promise<VenueDetails | n
     return cached;
   }
 
-  const mockVenue = MOCK_VENUES.find(v => v.id === venueId);
-  if (!mockVenue) {
+  const details = await source.getVenueDetails(venueId);
+  if (!details) {
     return null;
   }
-
-  const venue = mockToVenue(mockVenue);
-
-  const details: VenueDetails = {
-    ...venue,
-    description: mockVenue.description,
-    images: mockVenue.image_url ? [mockVenue.image_url] : [],
-    courts: Array.from({ length: mockVenue.courts }, (_, i) => ({
-      id: `${mockVenue.id}-court-${i + 1}`,
-      name: `Court ${i + 1}`,
-      type: i < mockVenue.indoor_courts ? 'indoor' : 'outdoor',
-      surface: 'artificial_grass',
-    })),
-    amenities: mockVenue.amenities,
-  };
 
   // Cache for 24 hours
   cache.set(cacheKey, details, 24 * 60 * 60 * 1000);
@@ -982,11 +1002,10 @@ export async function checkVenueAvailabilityWithProperties(
   venueName?: string
 ): Promise<EnhancedTimeSlotWithProperties[]> {
   const slots = await checkVenueAvailability(venueId, date, venueName);
-  const mockVenue = MOCK_VENUES.find(v => v.id === venueId);
+  const courts = (await getVenueDetails(venueId))?.courts ?? [];
 
-  return slots.map((slot, index) => {
-    const courtNum = parseInt(slot.court_name.replace('Court ', ''));
-    const isIndoor = mockVenue ? courtNum <= mockVenue.indoor_courts : false;
+  return slots.map((slot) => {
+    const isIndoor = courts.find((c) => c.name === slot.court_name)?.type === 'indoor';
 
     return {
       ...slot,
@@ -1072,9 +1091,6 @@ export async function findAvailableGamesWithFilters(
   const allSlots: (EnhancedTimeSlotWithProperties & { distance_km?: number })[] = [];
 
   for (const venue of venues) {
-    const venueData = MOCK_VENUES.find(v => v.id === venue.id);
-    if (!venueData) continue;
-
     const slots = await checkVenueAvailabilityWithProperties(venue.id, date, venue.name);
 
     for (const slot of slots) {
